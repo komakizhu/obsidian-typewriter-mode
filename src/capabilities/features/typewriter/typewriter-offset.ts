@@ -6,8 +6,8 @@ export default class TypewriterOffset extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "Typewriter offset",
-      desc: "Positions the typewriter line at the specified percentage of the screen",
+      name: "打字机偏移位置",
+      desc: "将打字机当前行定位在屏幕指定百分比的位置",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addSlider((slider) =>
           slider
@@ -26,10 +26,8 @@ export default class TypewriterOffset extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("Typewriter offset")
-        .setDesc(
-          "Positions the typewriter line at the specified percentage of the screen"
-        )
+        .setName("打字机偏移位置")
+        .setDesc("将打字机当前行定位在屏幕指定百分比的位置")
         .setClass("typewriter-mode-setting")
         .addSlider((slider) =>
           slider

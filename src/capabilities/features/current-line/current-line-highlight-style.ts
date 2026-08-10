@@ -18,13 +18,13 @@ export default class CurrentLineHighlightStyle extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("Current line highlight style")
-        .setDesc("The style of the current line highlight")
+        .setName("当前行高亮样式")
+        .setDesc("当前行高亮的样式")
         .setClass("typewriter-mode-setting")
         .addDropdown((dropdown) =>
           dropdown
-            .addOption(CURRENT_LINE_HIGHLIGHT_STYLE.BOX, "Box")
-            .addOption(CURRENT_LINE_HIGHLIGHT_STYLE.UNDERLINE, "Underline")
+            .addOption(CURRENT_LINE_HIGHLIGHT_STYLE.BOX, "方框")
+            .addOption(CURRENT_LINE_HIGHLIGHT_STYLE.UNDERLINE, "下划线")
             .setValue(this.getSettingValue() as CurrentLineHighlightStyleType)
             .onChange((newValue) => {
               this.changeCurrentLineHighlightStyle(
@@ -37,13 +37,13 @@ export default class CurrentLineHighlightStyle extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "Current line highlight style",
-      desc: "The style of the current line highlight",
+      name: "当前行高亮样式",
+      desc: "当前行高亮的样式",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addDropdown((dropdown) =>
           dropdown
-            .addOption(CURRENT_LINE_HIGHLIGHT_STYLE.BOX, "Box")
-            .addOption(CURRENT_LINE_HIGHLIGHT_STYLE.UNDERLINE, "Underline")
+            .addOption(CURRENT_LINE_HIGHLIGHT_STYLE.BOX, "方框")
+            .addOption(CURRENT_LINE_HIGHLIGHT_STYLE.UNDERLINE, "下划线")
             .setValue(this.getSettingValue() as CurrentLineHighlightStyleType)
             .onChange((newValue) => {
               this.changeCurrentLineHighlightStyle(

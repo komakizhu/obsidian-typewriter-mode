@@ -9,7 +9,7 @@ function registerMoveTypewriterCommand(
 
   tm.plugin.addCommand({
     id: `move-typewriter-${direction}`,
-    name: `Move typewriter ${direction}`,
+    name: direction === "up" ? "上移打字机位置" : "下移打字机位置",
     editorCallback: (editor, _view) => {
       editor.exec(editorCommand);
       window.dispatchEvent(new Event("moveByCommand"));
@@ -19,7 +19,7 @@ function registerMoveTypewriterCommand(
 
 export class MoveTypewriterUp extends AbstractCommand {
   readonly commandKey = "move-typewriter-up";
-  readonly commandTitle = "Move typewriter up";
+  readonly commandTitle = "上移打字机位置";
   protected override registerCommand(): void {
     registerMoveTypewriterCommand(this.tm, "up");
   }
@@ -27,7 +27,7 @@ export class MoveTypewriterUp extends AbstractCommand {
 
 export class MoveTypewriterDown extends AbstractCommand {
   readonly commandKey = "move-typewriter-down";
-  readonly commandTitle = "Move typewriter down";
+  readonly commandTitle = "下移打字机位置";
   protected override registerCommand(): void {
     registerMoveTypewriterCommand(this.tm, "down");
   }

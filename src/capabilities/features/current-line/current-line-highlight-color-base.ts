@@ -25,9 +25,11 @@ export default abstract class CurrentLineHighlightColor extends Feature {
 
     settingGroup.addSetting((setting) => {
       setting
-        .setName(`Current line highlight color in ${this.themeMode} themes`)
+        .setName(
+          `当前行高亮颜色（${this.themeMode === "dark" ? "深色" : "浅色"}主题）`
+        )
         .setDesc(
-          `The color and opacity of the current line highlight in ${this.themeMode} themes`
+          `当前行高亮在${this.themeMode === "dark" ? "深色" : "浅色"}主题下的颜色和不透明度`
         )
         .setClass("typewriter-mode-setting")
         .addColorPicker((colorPicker) =>
@@ -58,8 +60,8 @@ export default abstract class CurrentLineHighlightColor extends Feature {
     const { color, opacity } = this.parseColor(currentValue);
 
     return {
-      name: `Current line highlight color in ${this.themeMode} themes`,
-      desc: `The color and opacity of the current line highlight in ${this.themeMode} themes`,
+      name: `当前行高亮颜色（${this.themeMode === "dark" ? "深色" : "浅色"}主题）`,
+      desc: `当前行高亮在${this.themeMode === "dark" ? "深色" : "浅色"}主题下的颜色和不透明度`,
       render: (setting) => {
         setting
           .setClass("typewriter-mode-setting")

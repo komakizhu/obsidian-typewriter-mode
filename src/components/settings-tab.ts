@@ -47,10 +47,10 @@ export default class TypewriterModeSettingTab extends PluginSettingTab {
       // Typewriter
       {
         type: "group",
-        heading: "Typewriter",
+        heading: "打字机滚动",
         items: [
           {
-            name: 'Not available if "keep lines above and below" is activated',
+            name: "启用“保持当前行上下行数”后不可用",
             visible: () =>
               this.tm.settings.keepLinesAboveAndBelow
                 .isKeepLinesAboveAndBelowEnabled,
@@ -62,10 +62,10 @@ export default class TypewriterModeSettingTab extends PluginSettingTab {
       // Keep lines above and below
       {
         type: "group",
-        heading: "Keep lines above and below",
+        heading: "保持当前行上下行数",
         items: [
           {
-            name: "Not available if typewriter scrolling is activated",
+            name: "启用打字机滚动后不可用",
             visible: () =>
               this.tm.settings.typewriter.isTypewriterScrollEnabled,
           },
@@ -76,42 +76,42 @@ export default class TypewriterModeSettingTab extends PluginSettingTab {
       // Highlight current line
       {
         type: "group",
-        heading: "Highlight current line",
+        heading: "高亮当前行",
         items: this.featureDefs(this.tm.features.currentLine, refresh),
       },
 
       // Limit line width
       {
         type: "group",
-        heading: "Limit line width",
+        heading: "限制行宽",
         items: this.featureDefs(this.tm.features.maxChar, refresh),
       },
 
       // Dimming
       {
         type: "group",
-        heading: "Dimming",
+        heading: "淡化",
         items: this.featureDefs(this.tm.features.dimming, refresh),
       },
 
       // Writing focus
       {
         type: "group",
-        heading: "Writing focus",
+        heading: "写作专注",
         items: this.featureDefs(this.tm.features.writingFocus, refresh),
       },
 
       // Hemingway mode
       {
         type: "group",
-        heading: "Hemingway mode",
+        heading: "海明威模式",
         items: this.featureDefs(this.tm.features.hemingwayMode, refresh),
       },
 
       // Restore cursor position
       {
         type: "group",
-        heading: "Restore cursor position",
+        heading: "恢复光标位置",
         items: this.featureDefs(
           this.tm.features.restoreCursorPosition,
           refresh
@@ -121,7 +121,7 @@ export default class TypewriterModeSettingTab extends PluginSettingTab {
       // Update notice and funding
       {
         type: "group",
-        heading: "Update notice and funding",
+        heading: "更新通知与赞助",
         items: [
           ...this.featureDefs(this.tm.features.updates, refresh),
           {
@@ -156,26 +156,24 @@ export default class TypewriterModeSettingTab extends PluginSettingTab {
 
     // Typewriter group
     const typewriterGroup = new SettingGroup(this.containerEl).setHeading(
-      "Typewriter"
+      "打字机滚动"
     );
     if (
       this.tm.settings.keepLinesAboveAndBelow.isKeepLinesAboveAndBelowEnabled
     ) {
       typewriterGroup.addSetting((setting) => {
-        setting.setName(
-          'Not available if "keep lines above and below" is activated'
-        );
+        setting.setName("启用“保持当前行上下行数”后不可用");
       });
     }
     this.registerFeaturesInGroup(typewriterGroup, this.tm.features.typewriter);
 
     // Keep lines above and below group
     const keepLinesGroup = new SettingGroup(this.containerEl).setHeading(
-      "Keep lines above and below"
+      "保持当前行上下行数"
     );
     if (this.tm.settings.typewriter.isTypewriterScrollEnabled) {
       keepLinesGroup.addSetting((setting) => {
-        setting.setName("Not available if typewriter scrolling is activated");
+        setting.setName("启用打字机滚动后不可用");
       });
     }
     this.registerFeaturesInGroup(
@@ -185,7 +183,7 @@ export default class TypewriterModeSettingTab extends PluginSettingTab {
 
     // Highlight current line group
     const currentLineGroup = new SettingGroup(this.containerEl).setHeading(
-      "Highlight current line"
+      "高亮当前行"
     );
     this.registerFeaturesInGroup(
       currentLineGroup,
@@ -194,19 +192,17 @@ export default class TypewriterModeSettingTab extends PluginSettingTab {
 
     // Limit line width group
     const maxCharGroup = new SettingGroup(this.containerEl).setHeading(
-      "Limit line width"
+      "限制行宽"
     );
     this.registerFeaturesInGroup(maxCharGroup, this.tm.features.maxChar);
 
     // Dimming group
-    const dimmingGroup = new SettingGroup(this.containerEl).setHeading(
-      "Dimming"
-    );
+    const dimmingGroup = new SettingGroup(this.containerEl).setHeading("淡化");
     this.registerFeaturesInGroup(dimmingGroup, this.tm.features.dimming);
 
     // Writing focus group
     const writingFocusGroup = new SettingGroup(this.containerEl).setHeading(
-      "Writing focus"
+      "写作专注"
     );
     this.registerFeaturesInGroup(
       writingFocusGroup,
@@ -215,7 +211,7 @@ export default class TypewriterModeSettingTab extends PluginSettingTab {
 
     // Hemingway mode group
     const hemingwayGroup = new SettingGroup(this.containerEl).setHeading(
-      "Hemingway mode"
+      "海明威模式"
     );
     this.registerFeaturesInGroup(
       hemingwayGroup,
@@ -224,7 +220,7 @@ export default class TypewriterModeSettingTab extends PluginSettingTab {
 
     // Restore cursor position group
     const restoreCursorGroup = new SettingGroup(this.containerEl).setHeading(
-      "Restore cursor position"
+      "恢复光标位置"
     );
     this.registerFeaturesInGroup(
       restoreCursorGroup,
@@ -233,7 +229,7 @@ export default class TypewriterModeSettingTab extends PluginSettingTab {
 
     // Update notice and funding group
     const updatesGroup = new SettingGroup(this.containerEl).setHeading(
-      "Update notice and funding"
+      "更新通知与赞助"
     );
     this.registerFeaturesInGroup(updatesGroup, this.tm.features.updates);
 

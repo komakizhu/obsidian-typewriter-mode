@@ -203,7 +203,7 @@ export const DEFAULT_SETTINGS: TypewriterModeSettings = {
     isHemingwayModeOnlyInWritingFocusModeEnabled: false,
     isAllowBackspaceInHemingwayModeEnabled: false,
     isShowHemingwayModeStatusBarEnabled: true,
-    hemingwayModeStatusBarText: "Hemingway",
+    hemingwayModeStatusBarText: "海明威",
   },
 };
 

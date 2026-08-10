@@ -5,7 +5,7 @@ export class ToggleTypewriterAndDimming extends ToggleCommand {
   protected override featureToggle = null;
 
   readonly commandKey = "typewriter-scrolling-and-paragraph-dimming";
-  readonly commandTitle = "typewriter scrolling and paragraph dimming";
+  readonly commandTitle = "打字机滚动与段落淡化";
 
   protected override onCommand(): void {
     const typewriterScrollFeature = this.tm.features.typewriter[

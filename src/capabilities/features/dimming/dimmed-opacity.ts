@@ -7,8 +7,8 @@ export default class DimmedOpacity extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("Opacity of dimmed elements")
-        .setDesc("The opacity of dimmed elements")
+        .setName("淡化内容的不透明度")
+        .setDesc("淡化内容的不透明度")
         .setClass("typewriter-mode-setting")
         .addSlider((slider) =>
           slider
@@ -24,8 +24,8 @@ export default class DimmedOpacity extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "Opacity of dimmed elements",
-      desc: "The opacity of dimmed elements",
+      name: "淡化内容的不透明度",
+      desc: "淡化内容的不透明度",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addSlider((slider) =>
           slider

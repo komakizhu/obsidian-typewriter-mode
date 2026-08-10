@@ -3,7 +3,7 @@ import { FeatureToggle } from "@/capabilities/base/feature-toggle";
 export default class DimTableAsOne extends FeatureToggle {
   readonly settingKey = "dimming.isDimTableAsOneEnabled" as const;
   protected override toggleClass = "ptm-dim-table-as-one";
-  protected settingTitle = "Undim all table cells when editing";
+  protected settingTitle = "编辑表格时不淡化任何单元格";
   protected settingDesc =
-    "If this is enabled, all table cells are shown/not dimmed when you edit a table. If this is disabled, only the current table cell that you are editing is shown, while the other cells remain dimmed.";
+    "开启后，编辑表格时显示所有表格单元格；关闭后只显示当前正在编辑的单元格，其他单元格保持淡化。";
 }

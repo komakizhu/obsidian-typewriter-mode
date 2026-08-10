@@ -6,8 +6,8 @@ export default class WritingFocusFontSize extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "Writing focus font size",
-      desc: "Custom font size in points for writing focus mode (0 = use default font size)",
+      name: "写作专注字体大小",
+      desc: "写作专注模式下的自定义字体大小（0 = 使用默认字体大小）",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addSlider((slider) =>
           slider
@@ -26,10 +26,8 @@ export default class WritingFocusFontSize extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("Writing focus font size")
-        .setDesc(
-          "Custom font size in points for writing focus mode (0 = use default font size)"
-        )
+        .setName("写作专注字体大小")
+        .setDesc("写作专注模式下的自定义字体大小（0 = 使用默认字体大小）")
         .setClass("typewriter-mode-setting")
         .addSlider((slider) =>
           slider

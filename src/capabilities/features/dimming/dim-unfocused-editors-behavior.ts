@@ -11,22 +11,19 @@ export default class DimUnfocusedEditorsBehavior extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("Dimming behavior in unfocused notes")
+        .setName("非焦点笔记中的淡化行为")
         .setDesc(
-          "How to dim paragraphs / sentences in notes / editors that your cursor is not on (e.g. if you have multiple notes open in split panes)"
+          "如何淡化光标不在其中的笔记或编辑器中的段落/句子（例如同时打开多个分栏时）"
         )
         .setClass("typewriter-mode-setting")
         .addDropdown((dropdown) =>
           dropdown
-            .addOption(
-              DIM_UNFOCUSED_EDITORS_BEHAVIOR.NONE,
-              "Do not dim anything"
-            )
+            .addOption(DIM_UNFOCUSED_EDITORS_BEHAVIOR.NONE, "不淡化任何内容")
             .addOption(
               DIM_UNFOCUSED_EDITORS_BEHAVIOR.DIM,
-              "Dim all but the previously focused paragraph / sentence"
+              "淡化除上次焦点段落/句子外的所有内容"
             )
-            .addOption(DIM_UNFOCUSED_EDITORS_BEHAVIOR.ALL, "Dim everything")
+            .addOption(DIM_UNFOCUSED_EDITORS_BEHAVIOR.ALL, "淡化所有内容")
             .setValue(this.getSettingValue() as DimUnfocusedEditorsBehaviorType)
             .onChange((newValue) => {
               this.changeDimUnfocusedEditorsBehavior(
@@ -39,20 +36,17 @@ export default class DimUnfocusedEditorsBehavior extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "Dimming behavior in unfocused notes",
-      desc: "How to dim paragraphs / sentences in notes / editors that your cursor is not on (e.g. if you have multiple notes open in split panes)",
+      name: "非焦点笔记中的淡化行为",
+      desc: "如何淡化光标不在其中的笔记或编辑器中的段落/句子（例如同时打开多个分栏时）",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addDropdown((dropdown) =>
           dropdown
-            .addOption(
-              DIM_UNFOCUSED_EDITORS_BEHAVIOR.NONE,
-              "Do not dim anything"
-            )
+            .addOption(DIM_UNFOCUSED_EDITORS_BEHAVIOR.NONE, "不淡化任何内容")
             .addOption(
               DIM_UNFOCUSED_EDITORS_BEHAVIOR.DIM,
-              "Dim all but the previously focused paragraph / sentence"
+              "淡化除上次焦点段落/句子外的所有内容"
             )
-            .addOption(DIM_UNFOCUSED_EDITORS_BEHAVIOR.ALL, "Dim everything")
+            .addOption(DIM_UNFOCUSED_EDITORS_BEHAVIOR.ALL, "淡化所有内容")
             .setValue(this.getSettingValue() as DimUnfocusedEditorsBehaviorType)
             .onChange((newValue) => {
               this.changeDimUnfocusedEditorsBehavior(

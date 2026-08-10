@@ -25,7 +25,7 @@
     "typescript": "^6.0.3",
     "ultracite": "7.8.2"
   },
-  "description": "Typewriter scrolling, highlight of the current line, dimming of unfocused paragraphs and more",
+  "description": "打字机滚动、当前行高亮、非焦点段落淡化、写作专注等功能",
   "keywords": [
     "obsidian",
     "typewriter"

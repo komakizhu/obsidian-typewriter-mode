@@ -7,8 +7,8 @@ export default class MaxCharsPerLine extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("Maximum number of characters per line")
-        .setDesc("The maximum number of characters per line")
+        .setName("每行最大字符数")
+        .setDesc("每行最多显示的字符数")
         .setClass("typewriter-mode-setting")
         .addText((text) =>
           text
@@ -22,8 +22,8 @@ export default class MaxCharsPerLine extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "Maximum number of characters per line",
-      desc: "The maximum number of characters per line",
+      name: "每行最大字符数",
+      desc: "每行最多显示的字符数",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addText((text) =>
           text

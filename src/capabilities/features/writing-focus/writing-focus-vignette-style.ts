@@ -10,13 +10,13 @@ export default class WritingFocusVignetteStyle extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "Writing focus vignette style",
-      desc: "The style of the vignette in writing focus mode",
+      name: "写作专注暗角样式",
+      desc: "写作专注模式下的暗角样式",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addDropdown((dropdown) =>
           dropdown
-            .addOption(WRITING_FOCUS_VIGNETTE_STYLE.BOX, "Box")
-            .addOption(WRITING_FOCUS_VIGNETTE_STYLE.COLUMN, "Column")
+            .addOption(WRITING_FOCUS_VIGNETTE_STYLE.BOX, "方框")
+            .addOption(WRITING_FOCUS_VIGNETTE_STYLE.COLUMN, "纵向栏")
             .setValue(this.getSettingValue() as WritingFocusVignetteStyleType)
             .onChange((newValue) => {
               this.changeVignetteStyle(
@@ -32,13 +32,13 @@ export default class WritingFocusVignetteStyle extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("Writing focus vignette style")
-        .setDesc("The style of the vignette in writing focus mode")
+        .setName("写作专注暗角样式")
+        .setDesc("写作专注模式下的暗角样式")
         .setClass("typewriter-mode-setting")
         .addDropdown((dropdown) =>
           dropdown
-            .addOption(WRITING_FOCUS_VIGNETTE_STYLE.BOX, "Box")
-            .addOption(WRITING_FOCUS_VIGNETTE_STYLE.COLUMN, "Column")
+            .addOption(WRITING_FOCUS_VIGNETTE_STYLE.BOX, "方框")
+            .addOption(WRITING_FOCUS_VIGNETTE_STYLE.COLUMN, "纵向栏")
             .setValue(this.getSettingValue() as WritingFocusVignetteStyleType)
             .onChange((newValue) => {
               this.changeVignetteStyle(

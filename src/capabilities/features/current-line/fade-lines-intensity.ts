@@ -7,8 +7,8 @@ export default class FadeLinesIntensity extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("Intensity of the fade lines gradient")
-        .setDesc("How soon lines shall be faded out")
+        .setName("渐变淡化强度")
+        .setDesc("控制行文本淡出的速度")
         .setClass("typewriter-mode-setting")
         .addSlider((slider) =>
           slider
@@ -24,8 +24,8 @@ export default class FadeLinesIntensity extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "Intensity of the fade lines gradient",
-      desc: "How soon lines shall be faded out",
+      name: "渐变淡化强度",
+      desc: "控制行文本淡出的速度",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addSlider((slider) =>
           slider

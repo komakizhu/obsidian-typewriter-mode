@@ -5,7 +5,6 @@ export default class FadeLinesOnlyInWritingFocusMode extends FeatureToggle {
     "currentLine.isFadeLinesOnlyInWritingFocusModeEnabled" as const;
   protected override toggleClass = "ptm-fade-lines-only-in-writing-focus-mode";
   protected hasCommand = false;
-  protected settingTitle = "Fade lines only in writing focus mode";
-  protected settingDesc =
-    "Only show the fade lines effect when writing focus mode is active";
+  protected settingTitle = "仅在写作专注中淡化行";
+  protected settingDesc = "仅当写作专注模式启用时显示渐变淡化效果";
 }

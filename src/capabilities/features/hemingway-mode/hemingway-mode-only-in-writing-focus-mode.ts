@@ -6,9 +6,8 @@ export default class HemingwayModeOnlyInWritingFocusMode extends FeatureToggle {
     "hemingwayMode.isHemingwayModeOnlyInWritingFocusModeEnabled" as const;
   protected override toggleClass = null;
   protected hasCommand = false;
-  protected settingTitle = "Hemingway mode only in writing focus mode";
-  protected settingDesc =
-    "Only enforce Hemingway mode when writing focus mode is active";
+  protected settingTitle = "仅在写作专注中启用海明威模式";
+  protected settingDesc = "仅当写作专注模式启用时执行海明威模式";
 
   override enable() {
     super.enable();

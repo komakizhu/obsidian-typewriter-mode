@@ -6,8 +6,8 @@ export default class LinesAboveAndBelow extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "Amount of lines above and below the current line",
-      desc: "The amount of lines to always keep above and below the current line",
+      name: "当前行上下保留的行数",
+      desc: "始终在当前行上方和下方保留的行数",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addText((text) =>
           text
@@ -26,10 +26,8 @@ export default class LinesAboveAndBelow extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("Amount of lines above and below the current line")
-        .setDesc(
-          "The amount of lines to always keep above and below the current line"
-        )
+        .setName("当前行上下保留的行数")
+        .setDesc("始终在当前行上方和下方保留的行数")
         .setClass("typewriter-mode-setting")
         .addText((text) =>
           text

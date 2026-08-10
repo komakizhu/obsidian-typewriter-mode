@@ -7,7 +7,7 @@ export class WritingFocusCommand extends ToggleCommand {
   protected override featureToggle = null;
 
   readonly commandKey = "writing-focus";
-  readonly commandTitle = "writing focus";
+  readonly commandTitle = "写作专注";
 
   private readonly writingFocus = new WritingFocus(this.tm);
 
@@ -24,12 +24,8 @@ export class WritingFocusCommand extends ToggleCommand {
   }
 
   onload() {
-    this.tm.plugin.addRibbonIcon(
-      "enter",
-      "Toggle Writing Focus",
-      (_event): void => {
-        this.writingFocus.toggleFocusMode();
-      }
-    );
+    this.tm.plugin.addRibbonIcon("enter", "切换写作专注", (_event): void => {
+      this.writingFocus.toggleFocusMode();
+    });
   }
 }

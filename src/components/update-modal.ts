@@ -43,7 +43,7 @@ async function getReleaseNotesAfter(
 
   if (!Array.isArray(releases)) {
     throw new Error(
-      `Failed to fetch releases: ${"message" in releases ? releases.message : "Unknown error"}`
+      `获取版本发布信息失败：${"message" in releases ? releases.message : "未知错误"}`
     );
   }
 
@@ -57,7 +57,7 @@ async function getReleaseNotesAfter(
   );
 
   if (startReleaseIdx === -1) {
-    throw new Error(`Could not find release with tag ${releaseTagName}`);
+    throw new Error(`找不到标签为 ${releaseTagName} 的版本`);
   }
 
   return releases
@@ -91,7 +91,7 @@ export class UpdateModal extends Modal {
     )
       .then((releases) => {
         if (releases.length === 0) {
-          this.displayError(new Error("No new releases found"));
+          this.displayError(new Error("没有发现新版本"));
         } else {
           this.displayReleaseNotes(releases);
         }
@@ -105,7 +105,7 @@ export class UpdateModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.createEl("h2", {
-      text: "Fetching release notes...",
+      text: "正在获取版本说明…",
     });
 
     this.fetchAndDisplayReleaseNotes();

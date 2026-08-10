@@ -8,8 +8,8 @@ import { FeatureToggle } from "@/capabilities/base/feature-toggle";
 export default class RestoreCursorPosition extends FeatureToggle {
   readonly settingKey =
     "restoreCursorPosition.isRestoreCursorPositionEnabled" as const;
-  protected settingTitle = "Restore cursor position";
-  protected settingDesc = "Restore the last cursor position when opening files";
+  protected settingTitle = "恢复光标位置";
+  protected settingDesc = "打开文件时恢复上次的光标位置";
 
   get state(): Record<string, SelectionRange> {
     return this.tm.settings.restoreCursorPosition.cursorPositions as Record<

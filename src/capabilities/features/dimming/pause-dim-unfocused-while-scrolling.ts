@@ -4,7 +4,6 @@ export default class PauseDimUnfocusedParagraphsWhileScrolling extends FeatureTo
   readonly settingKey =
     "dimming.isPauseDimUnfocusedWhileScrollingEnabled" as const;
   protected override toggleClass = "ptm-dim-unfocused-pause-while-scrolling";
-  protected settingTitle = "Pause dimming while scrolling";
-  protected settingDesc =
-    "If this is enabled, paragraphs / sentences are not dimmed while scrolling";
+  protected settingTitle = "滚动时暂停淡化";
+  protected settingDesc = "开启后，滚动时不会淡化段落或句子";
 }

@@ -4,7 +4,6 @@ export default class PauseCurrentLineHighlightWhileSelecting extends FeatureTogg
   readonly settingKey =
     "currentLine.isPauseCurrentLineHighlightWhileSelectingEnabled" as const;
   protected override toggleClass = "ptm-current-line-pause-while-selecting";
-  protected settingTitle = "Pause current line highlight while selecting text";
-  protected settingDesc =
-    "If enabled, the current line highlight is hidden while selecting text";
+  protected settingTitle = "选中文本时暂停当前行高亮";
+  protected settingDesc = "开启后，选中文本时隐藏当前行高亮";
 }

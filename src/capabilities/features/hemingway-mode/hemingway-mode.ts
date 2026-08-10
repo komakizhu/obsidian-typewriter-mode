@@ -3,9 +3,9 @@ import { FeatureToggle } from "@/capabilities/base/feature-toggle";
 export default class HemingwayMode extends FeatureToggle {
   readonly settingKey = "hemingwayMode.isHemingwayModeEnabled" as const;
   protected override toggleClass = "ptm-hemingway-mode-enabled";
-  protected settingTitle = "Hemingway mode";
+  protected settingTitle = "海明威模式";
   protected settingDesc =
-    "Prevents editing previously written text. Blocks navigation keys (arrows, Home, End, Page Up/Down), Delete key, and undo operations to enforce forward-only writing.";
+    "禁止编辑已经写过的文本。会阻止方向键、Home、End、Page Up/Down、Delete 以及撤销操作，以强制保持向前写作。";
 
   private statusBarItem: HTMLElement | null = null;
 

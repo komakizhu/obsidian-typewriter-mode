@@ -1,7 +1,7 @@
-# Typewriter Mode updated to v{{tag-name}}
+# 打字机模式已更新至 v{{tag-name}}
 
 {{funding}}
 
-## What's new?
+## 更新内容
 
 {{release-notes}}

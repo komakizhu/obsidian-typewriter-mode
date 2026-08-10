@@ -7,9 +7,8 @@ import {
 
 export default class EnabledPlatforms extends Feature {
   readonly settingKey = "general.enabledPlatforms" as const;
-  protected settingTitle = "Enable on platforms";
-  protected settingDesc =
-    "Select on which platforms Typewriter Mode should be active";
+  protected settingTitle = "启用平台";
+  protected settingDesc = "选择在哪些平台启用打字机模式";
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
@@ -18,18 +17,12 @@ export default class EnabledPlatforms extends Feature {
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addDropdown((dropdown) =>
           dropdown
-            .addOption(ENABLED_PLATFORMS.BOTH, "All platforms")
-            .addOption(ENABLED_PLATFORMS.DESKTOP, "Desktop only")
-            .addOption(
-              ENABLED_PLATFORMS.MOBILE,
-              "Mobile only (tablet and phone)"
-            )
-            .addOption(ENABLED_PLATFORMS.TABLET, "Tablet only")
-            .addOption(ENABLED_PLATFORMS.PHONE, "Phone only")
-            .addOption(
-              ENABLED_PLATFORMS.DESKTOP_AND_TABLET,
-              "Desktop and tablet"
-            )
+            .addOption(ENABLED_PLATFORMS.BOTH, "所有平台")
+            .addOption(ENABLED_PLATFORMS.DESKTOP, "仅桌面端")
+            .addOption(ENABLED_PLATFORMS.MOBILE, "仅移动端（平板和手机）")
+            .addOption(ENABLED_PLATFORMS.TABLET, "仅平板端")
+            .addOption(ENABLED_PLATFORMS.PHONE, "仅手机端")
+            .addOption(ENABLED_PLATFORMS.DESKTOP_AND_TABLET, "桌面端和平板端")
             .setValue(this.getSettingValue() as EnabledPlatformsType)
             .onChange((newValue) => {
               this.setSettingValue(newValue as EnabledPlatformsType);
@@ -51,18 +44,12 @@ export default class EnabledPlatforms extends Feature {
         .setClass("typewriter-mode-setting")
         .addDropdown((dropdown) =>
           dropdown
-            .addOption(ENABLED_PLATFORMS.BOTH, "All platforms")
-            .addOption(ENABLED_PLATFORMS.DESKTOP, "Desktop only")
-            .addOption(
-              ENABLED_PLATFORMS.MOBILE,
-              "Mobile only (tablet and phone)"
-            )
-            .addOption(ENABLED_PLATFORMS.TABLET, "Tablet only")
-            .addOption(ENABLED_PLATFORMS.PHONE, "Phone only")
-            .addOption(
-              ENABLED_PLATFORMS.DESKTOP_AND_TABLET,
-              "Desktop and tablet"
-            )
+            .addOption(ENABLED_PLATFORMS.BOTH, "所有平台")
+            .addOption(ENABLED_PLATFORMS.DESKTOP, "仅桌面端")
+            .addOption(ENABLED_PLATFORMS.MOBILE, "仅移动端（平板和手机）")
+            .addOption(ENABLED_PLATFORMS.TABLET, "仅平板端")
+            .addOption(ENABLED_PLATFORMS.PHONE, "仅手机端")
+            .addOption(ENABLED_PLATFORMS.DESKTOP_AND_TABLET, "桌面端和平板端")
             .setValue(this.getSettingValue() as EnabledPlatformsType)
             .onChange((newValue) => {
               this.setSettingValue(newValue as EnabledPlatformsType);

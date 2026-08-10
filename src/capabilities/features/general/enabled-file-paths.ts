@@ -68,7 +68,7 @@ class FilePathsModal extends Modal {
   override onOpen() {
     const { contentEl, modalEl } = this;
     modalEl.addClass("typewriter-mode-file-paths-modal");
-    this.setTitle("File paths");
+    this.setTitle("文件路径");
 
     const columnsEl = contentEl.createDiv({
       cls: "typewriter-mode-file-paths-columns",
@@ -76,16 +76,16 @@ class FilePathsModal extends Modal {
 
     this.renderSection(
       columnsEl,
-      "Enabled paths",
-      "Only enable the plugin for these files or folders. If empty, the plugin is active in all files.",
+      "启用路径",
+      "仅在这些文件或文件夹中启用插件。留空则在所有文件中启用插件。",
       this.getEnabledPaths,
       this.setEnabledPaths
     );
 
     this.renderSection(
       columnsEl,
-      "Disabled paths",
-      "Always disable the plugin for these files or folders, overriding the enabled paths.",
+      "停用路径",
+      "始终在这些文件或文件夹中停用插件，优先级高于启用路径。",
       this.getDisabledPaths,
       this.setDisabledPaths
     );
@@ -114,7 +114,7 @@ class FilePathsModal extends Modal {
 
     const inputEl = columnEl.createEl("input", {
       type: "text",
-      placeholder: "Type to search vault paths…",
+      placeholder: "输入以搜索库中的路径…",
       cls: "typewriter-mode-file-paths-input",
     });
 
@@ -127,7 +127,7 @@ class FilePathsModal extends Modal {
       const paths = getPaths();
       if (paths.length === 0) {
         listEl.createEl("p", {
-          text: "No paths configured.",
+          text: "尚未配置路径。",
           cls: "setting-item-description",
         });
         return;
@@ -138,7 +138,7 @@ class FilePathsModal extends Modal {
           text: path,
           cls: "typewriter-mode-file-paths-row-name",
         });
-        const removeBtn = row.createEl("button", { text: "Remove" });
+        const removeBtn = row.createEl("button", { text: "移除" });
         removeBtn.addEventListener("click", () => {
           const updated = [...getPaths()];
           updated.splice(index, 1);
@@ -167,11 +167,11 @@ export default class EnabledFilePaths extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "File paths",
-      desc: "Configure which files or folders the plugin is enabled or disabled in.",
+      name: "文件路径",
+      desc: "配置在哪些文件或文件夹中启用或停用插件。",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addButton((button) =>
-          button.setButtonText("Configure").onClick(() => {
+          button.setButtonText("配置").onClick(() => {
             this.openModal();
             onChanged?.();
           })
@@ -213,13 +213,11 @@ export default class EnabledFilePaths extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("File paths")
-        .setDesc(
-          "Configure which files or folders the plugin is enabled or disabled in."
-        )
+        .setName("文件路径")
+        .setDesc("配置在哪些文件或文件夹中启用或停用插件。")
         .setClass("typewriter-mode-setting")
         .addButton((button) =>
-          button.setButtonText("Configure").onClick(() => {
+          button.setButtonText("配置").onClick(() => {
             this.openModal();
           })
         );

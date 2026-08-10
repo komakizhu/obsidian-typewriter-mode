@@ -6,7 +6,7 @@ export default class HighlightCurrentLineOnlyInFocusedEditor extends FeatureTogg
   protected override toggleClass =
     "ptm-highlight-current-line-only-in-active-editor";
   protected hasCommand = false;
-  protected settingTitle = "Highlight current line only in focused note";
+  protected settingTitle = "仅在焦点笔记中高亮当前行";
   protected settingDesc =
-    "Only show highlighted line in the note your cursor is on (e.g. if you have multiple notes open in split panes)";
+    "仅在光标所在的笔记中显示当前行高亮（例如同时打开多个分栏时）";
 }

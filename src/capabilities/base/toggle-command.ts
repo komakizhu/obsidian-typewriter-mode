@@ -7,17 +7,17 @@ export abstract class ToggleCommand extends Command {
   protected override registerCommand(): void {
     this.tm.plugin.addCommand({
       id: `${this.commandKey}-toggle`,
-      name: `Toggle ${this.commandTitle}`,
+      name: `切换${this.commandTitle}`,
       callback: this.onCommand.bind(this),
     });
     this.tm.plugin.addCommand({
       id: `${this.commandKey}-enable`,
-      name: `Enable ${this.commandTitle}`,
+      name: `启用${this.commandTitle}`,
       callback: this.onEnable.bind(this),
     });
     this.tm.plugin.addCommand({
       id: `${this.commandKey}-disable`,
-      name: `Disable ${this.commandTitle}`,
+      name: `停用${this.commandTitle}`,
       callback: this.onDisable.bind(this),
     });
   }

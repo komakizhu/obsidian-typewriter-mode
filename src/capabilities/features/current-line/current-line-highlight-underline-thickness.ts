@@ -8,10 +8,8 @@ export default class CurrentLineHighlightUnderlineThickness extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("Current line underline thickness")
-        .setDesc(
-          "The thickness of the underline that highlights the current line"
-        )
+        .setName("当前行下划线粗细")
+        .setDesc("高亮当前行的下划线粗细")
         .setClass("typewriter-mode-setting")
         .addSlider((slider) =>
           slider
@@ -27,8 +25,8 @@ export default class CurrentLineHighlightUnderlineThickness extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "Current line underline thickness",
-      desc: "The thickness of the underline that highlights the current line",
+      name: "当前行下划线粗细",
+      desc: "高亮当前行的下划线粗细",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addSlider((slider) =>
           slider

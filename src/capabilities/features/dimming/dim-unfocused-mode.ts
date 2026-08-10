@@ -11,13 +11,13 @@ export default class DimUnfocusedMode extends Feature {
   registerSetting(settingGroup: SettingGroup): void {
     settingGroup.addSetting((setting) => {
       setting
-        .setName("Dim unfocused mode")
-        .setDesc("Choose to dim unfocused paragraphs or sentences")
+        .setName("非焦点淡化模式")
+        .setDesc("选择淡化非焦点段落或句子")
         .setClass("typewriter-mode-setting")
         .addDropdown((dropdown) =>
           dropdown
-            .addOption(DIM_UNFOCUSED_MODE.PARAGRAPHS, "Paragraphs")
-            .addOption(DIM_UNFOCUSED_MODE.SENTENCES, "Sentences")
+            .addOption(DIM_UNFOCUSED_MODE.PARAGRAPHS, "段落")
+            .addOption(DIM_UNFOCUSED_MODE.SENTENCES, "句子")
             .setValue(this.getSettingValue() as DimUnfocusedModeType)
             .onChange((newValue) => {
               this.change(newValue as DimUnfocusedModeType);
@@ -28,13 +28,13 @@ export default class DimUnfocusedMode extends Feature {
 
   getDefinition(onChanged?: () => void): SettingDefinition {
     return {
-      name: "Dim unfocused mode",
-      desc: "Choose to dim unfocused paragraphs or sentences",
+      name: "非焦点淡化模式",
+      desc: "选择淡化非焦点段落或句子",
       render: (setting) => {
         setting.setClass("typewriter-mode-setting").addDropdown((dropdown) =>
           dropdown
-            .addOption(DIM_UNFOCUSED_MODE.PARAGRAPHS, "Paragraphs")
-            .addOption(DIM_UNFOCUSED_MODE.SENTENCES, "Sentences")
+            .addOption(DIM_UNFOCUSED_MODE.PARAGRAPHS, "段落")
+            .addOption(DIM_UNFOCUSED_MODE.SENTENCES, "句子")
             .setValue(this.getSettingValue() as DimUnfocusedModeType)
             .onChange((newValue) => {
               this.change(newValue as DimUnfocusedModeType);

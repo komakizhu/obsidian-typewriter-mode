@@ -1,79 +1,77 @@
-# Typewriter Mode for Obsidian
+# Obsidian 打字机模式（汉化版）
 
-| | | | | |
-| -- | -- | -- | -- | -- |
-|[![](https://img.shields.io/badge/GitHub-%2330363E.svg?style=for-the-badge\&logo=github\&logoColor=white)](https://github.com/davisriedel/obsidian-typewriter-mode)|[![](https://img.shields.io/badge/Obsidian-%23483699.svg?style=for-the-badge\&logo=obsidian\&logoColor=white)](https://obsidian.md/)|[![](https://img.shields.io/github/v/release/davisriedel/obsidian-typewriter-mode?style=for-the-badge)](https://github.com/davisriedel/obsidian-typewriter-mode/releases)|[![](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge\&logo=buy-me-a-coffee\&logoColor=black)](https://www.buymeacoffee.com/davis.riedel)|[![](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge\&logo=GitHub-Sponsors\&logoColor=#EA4AAA)](https://github.com/sponsors/davisriedel)|
+这是 [Typewriter Mode](https://github.com/davisriedel/obsidian-typewriter-mode) 的中文汉化维护版，为 Obsidian 提供专注、舒适的写作体验。
 
-Typewriter Mode turns [Obsidian](https://obsidian.md) into a distraction-free writing environment.
+![Version](https://img.shields.io/badge/version-1.5.1--beta.1-blue)
+![Obsidian](https://img.shields.io/badge/Obsidian-插件-483699)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-- Typewriter scrolling (current line stays at a fixed position on the screen)
-- Current line highlighting
-- Configurable number of lines kept above and below the cursor
-- Dimming of unfocused paragraphs / sentences
-- Fullscreen writing focus
-- Limit line length
-- Restore cursor position when opening files
-- Hemingway mode (disables editing previous text — write forwards only)
+## 功能
 
-## Installation
+- **打字机滚动**：让当前行保持在屏幕中固定的位置。
+- **当前行高亮**：突出显示正在编辑的行。
+- **上下文行数**：设置光标上下方需要保留的行数。
+- **非焦点内容淡化**：淡化未聚焦的段落或句子，减少视觉干扰。
+- **写作专注模式**：支持全屏写作、隐藏界面元素和专注视图。
+- **限制每行字符数**：控制正文的最大行宽，改善阅读与写作节奏。
+- **恢复光标位置**：重新打开笔记时恢复上次的光标位置。
+- **海明威模式**：限制修改已经写好的内容，鼓励持续向前写作。
+- **Markdown 表格兼容**：Live Preview 中的表格不会被“当前行高亮”覆盖，正文仍保持正常高亮。
 
-To install community plugins, make sure _Restricted mode_ is turned off in Obsidian's settings.
+## 安装
 
-### Obsidian
+安装社区插件前，请确认已在 Obsidian 设置中关闭“安全模式”。
 
-You can install this plugin within Obsidian by doing the following:
+### 从 Obsidian 社区插件安装
 
-- Go to Settings > Community Plugins > Browse
-- Search for “Typewriter Mode”
-- Click Install
-- Click Enable
+1. 打开 **设置 → 社区插件 → 浏览**。
+2. 搜索 **Typewriter Mode**。
+3. 点击 **安装**，然后点击 **启用**。
 
-### Manual
+### 手动安装
 
-1. Download the latest release from GitHub: [https://github.com/davisriedel/obsidian-typewriter-mode/releases](https://github.com/davisriedel/obsidian-typewriter-mode/releases)
-2. Extract the plugin folder from the zip to your vault's plugins folder: `<vault>/.obsidian/plugins/`. _Note: On some machines, the `.obsidian` folder may be hidden. On macOS, you should be able to press `Command+Shift+Dot` to show the folder in Finder._
-3. Force reload Obsidian (Ctrl/Cmd+P → "Reload app without saving")
+1. 从本仓库的 [Releases](https://github.com/komakizhu/obsidian-typewriter-mode/releases) 下载最新版本。
+2. 将插件文件夹解压到仓库的插件目录：`<仓库>/.obsidian/plugins/`。
+3. 在 Obsidian 中执行命令 **重新加载应用程序**，或重启 Obsidian。
 
-### Beta Versions With BRAT
+### 使用 BRAT 安装测试版
 
-Follow the instructions in the repository of the [BRAT plugin](https://github.com/TfTHacker/obsidian42-brat#Quick-Guide-for-using-BRAT) and use this repository's URL: `https://github.com/davisriedel/obsidian-typewriter-mode` to install **beta versions** of the plugin.
+按照 [BRAT 快速指南](https://github.com/TfTHacker/obsidian42-brat#quick-guide-for-using-brat) 添加以下仓库地址：
 
-## Disclosures
+```text
+https://github.com/komakizhu/obsidian-typewriter-mode
+```
 
-This plugin makes a single network request to `github.com` in order to fetch release notes when a new version of the plugin is installed. You can disable this, by disabling the update notice in the plugin's settings. No other network requests are made.
+## 汉化说明
 
-## Acknowledgements
+本版本主要完成了插件界面、设置项、命令名称、状态栏提示、更新提示和资金支持入口的中文化。插件 ID 保持为 `typewriter-mode`，因此可以直接替换原 Typewriter Mode 插件目录，不需要修改已有设置。
 
-This plugin started as a fork of the incredible [Typewriter Scroll](https://github.com/deathau/cm-typewriter-scroll-obsidian) plugin by [deathau](https://github.com/deathau). It was turned into a separate plugin because many new features were added, breaking changes were introduced, and the code was completely restructured to make it more extensible.
+本仓库以 `zh-CN` 分支作为汉化维护分支。上游英文版本的修复会根据需要同步，汉化内容和本地化调整优先在本仓库维护。
 
-The sentence highlighting was derived from [Focus Active Sentence](https://github.com/artisticat1/focus-active-sentence) by [artisticat1](https://github.com/artisticat1).
+## 隐私与网络请求
 
-The writing focus was derived from [Obsidian Focus Mode](https://github.com/ryanpcmcquen/obsidian-focus-mode) by [ryanpcmcquen](https://github.com/ryanpcmcquen).
+插件只会向 `github.com` 发起一次网络请求，用于在安装新版本时获取更新说明。可以在插件设置中关闭更新提示；除此之外，插件不会发起其他网络请求。
 
-The restore cursor position feature was derived from [Remember Cursor Position](https://github.com/dy-sh/obsidian-remember-cursor-position) by [dy-sh](https://github.com/dy-sh).
+## 致谢
 
-The hemingway mode feature was derived from [Obsidian Hemingway
-Mode](https://github.com/jobedom/obsidian-hemingway-mode) by [jobedom](https://github.com/jobedom).
+本插件最初源自 [Typewriter Scroll](https://github.com/deathau/cm-typewriter-scroll-obsidian)，感谢 [deathau](https://github.com/deathau) 的工作。
 
-Many thanks to the developers of these fantastic plugins. Please also consider supporting them.
+句子高亮功能参考了 [Focus Active Sentence](https://github.com/artisticat1/focus-active-sentence)，感谢 [artisticat1](https://github.com/artisticat1)。
 
-## Support this project
+写作专注功能参考了 [Obsidian Focus Mode](https://github.com/ryanpcmcquen/obsidian-focus-mode)，感谢 [ryanpcmcquen](https://github.com/ryanpcmcquen)。
 
-I am a student at the University of Tübingen and develop this plugin in my spare time. If you wish to support me and the continuous development of this plugin, you can donate via GitHub Sponsors or Buy Me a Coffee. Any support is greatly appreciated.
+恢复光标位置功能参考了 [Remember Cursor Position](https://github.com/dy-sh/obsidian-remember-cursor-position)，感谢 [dy-sh](https://github.com/dy-sh)。
 
-[![](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge\&logo=buy-me-a-coffee\&logoColor=black)](https://www.buymeacoffee.com/davis.riedel)
-[![](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge\&logo=GitHub-Sponsors\&logoColor=#EA4AAA)](https://github.com/sponsors/davisriedel)
+海明威模式参考了 [Obsidian Hemingway Mode](https://github.com/jobedom/obsidian-hemingway-mode)，感谢 [jobedom](https://github.com/jobedom)。
 
-## Changelog
+## 变更记录与开发
 
-See the [`CHANGELOG.md`](CHANGELOG.md) file.
+- [变更记录](CHANGELOG.md)
+- [开发说明](DEVELOPMENT.md)
+- [原项目](https://github.com/davisriedel/obsidian-typewriter-mode)
 
-## Contribute
+欢迎提交 Issue 和改进建议。
 
-**You are welcome to open issues and contribute to this project!**
+## 许可证
 
-See the [`DEVELOPMENT.md`](DEVELOPMENT.md) file for instructions.
-
-## License
-
-The plugin is licensed under the MIT license. See [`LICENSE`](LICENSE).
+本插件采用 MIT 许可证，详见 [LICENSE](LICENSE)。

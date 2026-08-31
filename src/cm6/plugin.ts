@@ -40,6 +40,8 @@ class TypewriterModeCM6Plugin {
   private readonly onScrollEventKey: "wheel" | "touchmove";
   private isListeningToOnScroll = false;
   private isOnScrollClassSet = false;
+  private isScrolling = false;
+  private scrollEndTimeout: number | null = null;
 
   private isInitialInteraction = true;
   private isRenderingAllowedUserEvent = false;
@@ -50,6 +52,7 @@ class TypewriterModeCM6Plugin {
 
   private readonly moveByCommandBound = this.moveByCommand.bind(this);
   private readonly onScrollBound = this.onScroll.bind(this);
+  private readonly onScrollEndBound = this.onScrollEnd.bind(this);
   private readonly onResizeBound = this.onResize.bind(this);
   private readonly onFocusInBound = this.onFocusIn.bind(this);
   private readonly onTableDomMutationBound = this.onTableDomMutation.bind(this);
@@ -72,6 +75,7 @@ class TypewriterModeCM6Plugin {
     }
 
     this.destroyCurrentLine();
+    this.clearScrollState();
 
     this.removeScrollListener();
 
@@ -544,6 +548,8 @@ class TypewriterModeCM6Plugin {
       return null;
     }
 
+    const currentLineContainer = getScrollDom(view) ?? editorDom;
+
     let currentLine = editorDom.querySelector(
       `.${currentLineClass}`
     ) as HTMLElement;
@@ -551,7 +557,9 @@ class TypewriterModeCM6Plugin {
     if (!currentLine) {
       currentLine = editorDom.ownerDocument.createElement("div");
       currentLine.className = currentLineClass;
-      editorDom.appendChild(currentLine);
+    }
+    if (currentLine.parentElement !== currentLineContainer) {
+      currentLineContainer.appendChild(currentLine);
     }
 
     if (this.tm.settings.currentLine.isFadeLinesEnabled) {
@@ -617,6 +625,9 @@ class TypewriterModeCM6Plugin {
       scrollDom.addEventListener("scroll", this.onScrollBound, {
         passive: true,
       });
+      scrollDom.addEventListener("scrollend", this.onScrollEndBound, {
+        passive: true,
+      });
       this.isListeningToOnScroll = true;
     }
   }
@@ -631,8 +642,41 @@ class TypewriterModeCM6Plugin {
     if (scrollDom) {
       scrollDom.removeEventListener(this.onScrollEventKey, this.onScrollBound);
       scrollDom.removeEventListener("scroll", this.onScrollBound);
+      scrollDom.removeEventListener("scrollend", this.onScrollEndBound);
       this.isListeningToOnScroll = false;
     }
+  }
+
+  private clearScrollEndTimeout() {
+    if (this.scrollEndTimeout === null) {
+      return;
+    }
+
+    window.clearTimeout(this.scrollEndTimeout);
+    this.scrollEndTimeout = null;
+  }
+
+  private clearScrollState() {
+    this.clearScrollEndTimeout();
+    this.isScrolling = false;
+
+    const editorDom = getEditorDom(this.view);
+    if (editorDom) {
+      editorDom.classList.remove("ptm-scroll");
+    }
+    this.isOnScrollClassSet = false;
+  }
+
+  private scheduleScrollEnd() {
+    this.clearScrollEndTimeout();
+    this.scrollEndTimeout = window.setTimeout(() => {
+      this.scrollEndTimeout = null;
+      this.clearScrollState();
+    }, 120);
+  }
+
+  private onScrollEnd() {
+    this.clearScrollState();
   }
 
   private measureTypewriterPosition(
@@ -662,12 +706,10 @@ class TypewriterModeCM6Plugin {
 
     this.removeScrollListener();
     this.applyDecorations();
+    this.clearScrollState();
 
     const editorDom = getEditorDom(this.view);
     if (editorDom) {
-      editorDom.classList.remove("ptm-scroll");
-      this.isOnScrollClassSet = false;
-
       editorDom.classList.remove("ptm-select");
 
       if (this.isInitialInteraction) {
@@ -698,6 +740,8 @@ class TypewriterModeCM6Plugin {
     if (this.isRenderingAllowedUserEvent) {
       return;
     }
+
+    this.clearScrollState();
 
     const editorDom = getEditorDom(this.view);
 
@@ -763,12 +807,14 @@ class TypewriterModeCM6Plugin {
   }
 
   private onScroll() {
+    this.isScrolling = true;
+    this.scheduleScrollEnd();
     this.scheduleTableOverlayCheck(2);
     this.measureTypewriterPosition(
       "TypewriterModeOnScroll",
       (measure, view) => {
         // This is placed here to debounce DOM manipulation
-        if (!this.isOnScrollClassSet) {
+        if (this.isScrolling && !this.isOnScrollClassSet) {
           const editorDom = getEditorDom(this.view);
           if (editorDom) {
             editorDom.classList.add("ptm-scroll");
@@ -858,8 +904,16 @@ class TypewriterModeCM6Plugin {
       return;
     }
 
+    const scrollDom = getScrollDom(view);
+    const editorDom = getEditorDom(view);
+    const scrollContentOffset = scrollDom
+      ? scrollDom.scrollTop +
+        (editorDom.getBoundingClientRect().top -
+          scrollDom.getBoundingClientRect().top)
+      : 0;
+
     result.currentLine.style.height = `${lineHeight}px`;
-    result.currentLine.style.top = `${offset - lineOffset}px`;
+    result.currentLine.style.top = `${offset - lineOffset + scrollContentOffset}px`;
 
     if (this.removeCurrentLineIfOverTable(view)) {
       return;

@@ -18,7 +18,7 @@
 }
 
 body.ptm-highlight-current-line-only-in-active-editor {
-  .cm-editor:not(.cm-focused) {
+  .cm-editor:not(.ptm-editor-disabled, .cm-focused) {
     .ptm-current-line {
       display: none;
     }

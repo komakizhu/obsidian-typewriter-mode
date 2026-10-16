@@ -5,13 +5,22 @@ import {
   ViewPlugin,
   type ViewUpdate,
 } from "@codemirror/view";
-import { ItemView, Platform } from "obsidian";
+import { editorInfoField, Platform } from "obsidian";
 import type { PerWindowProps } from "@/cm6/per-window-props";
 import type { TypewriterPositionData } from "@/cm6/typewriter-offset-calculator";
 import { TypewriterOffsetCalculator } from "@/cm6/typewriter-offset-calculator";
 import type TypewriterModeLib from "@/lib";
+import {
+  registerEditorCommandTarget,
+  type TypewriterMoveCommand,
+  unregisterEditorCommandTarget,
+} from "./editor-command-registry";
+import { getEditorFilePath } from "./editor-identity";
 import { getActiveSentenceDecos } from "./highlight-sentence";
+import { normalizeSelectionRange } from "./selection-utils";
 import { getEditorDom, getScrollDom, getSizerDom } from "./selectors";
+import { isMarkdownTableBlock } from "./table-detection";
+import { inspectTransactionState } from "./transaction-state";
 
 const currentLineClass = "ptm-current-line";
 
@@ -25,17 +34,16 @@ const USER_EVENT_ALLOWED_DEFAULT = /^(select|input|delete|undo|redo)(\..+)?$/;
 const USER_EVENT_DISALLOWED_DEFAULT = /^(select.pointer)$/;
 const USER_EVENT_ALLOWED_COMMANDS_ONLY = /^(input|delete|undo|redo)(\..+)?$/;
 const USER_EVENT_DISALLOWED_COMMANDS_ONLY = /^(select)(\..+)?$/;
-const markdownTableRowPattern = /^\|.*\|$/;
-const markdownTableSeparatorPattern =
-  /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/;
-
 class TypewriterModeCM6Plugin {
   protected tm: TypewriterModeLib;
   protected view: EditorView;
 
   private domResizeObserver: ResizeObserver | null = null;
   private tableWidgetObserver: MutationObserver | null = null;
+  private embeddedMarkdownObserver: MutationObserver | null = null;
   private tableOverlayCheckFrame: number | null = null;
+  private readonly pendingAnimationFrames = new Set<number>();
+  private isDestroyed = false;
 
   private readonly onScrollEventKey: "wheel" | "touchmove";
   private isListeningToOnScroll = false;
@@ -49,8 +57,15 @@ class TypewriterModeCM6Plugin {
   decorations: RangeSet<Decoration> = RangeSet.empty;
 
   private isPerWindowPropsReloadRequired = false;
+  private editorFilePath: string | null = null;
+  private registeredEditor: object | null = null;
+  private measurementGeneration = 0;
 
-  private readonly moveByCommandBound = this.moveByCommand.bind(this);
+  private readonly editorCommandTarget = {
+    moveByCommand: (command: TypewriterMoveCommand) =>
+      this.moveByCommand(command),
+  };
+
   private readonly onScrollBound = this.onScroll.bind(this);
   private readonly onScrollEndBound = this.onScrollEnd.bind(this);
   private readonly onResizeBound = this.onResize.bind(this);
@@ -60,6 +75,8 @@ class TypewriterModeCM6Plugin {
   constructor(tm: TypewriterModeLib, view: EditorView) {
     this.tm = tm;
     this.view = view;
+    this.editorFilePath = this.getEditorFilePath(view);
+    this.syncEditorCommandTarget();
 
     this.onScrollEventKey = Platform.isMobile ? "touchmove" : "wheel";
 
@@ -67,12 +84,18 @@ class TypewriterModeCM6Plugin {
   }
 
   destroy() {
+    this.isDestroyed = true;
     this.domResizeObserver?.disconnect();
     this.tableWidgetObserver?.disconnect();
+    this.embeddedMarkdownObserver?.disconnect();
     if (this.tableOverlayCheckFrame !== null) {
       window.cancelAnimationFrame(this.tableOverlayCheckFrame);
       this.tableOverlayCheckFrame = null;
     }
+    for (const frame of this.pendingAnimationFrames) {
+      window.cancelAnimationFrame(frame);
+    }
+    this.pendingAnimationFrames.clear();
 
     this.destroyCurrentLine();
     this.clearScrollState();
@@ -84,8 +107,15 @@ class TypewriterModeCM6Plugin {
       this.onFocusInBound,
       true
     );
+    this.view.dom.classList.remove("ptm-editor-disabled");
 
-    window.removeEventListener("moveByCommand", this.moveByCommandBound);
+    if (this.registeredEditor) {
+      unregisterEditorCommandTarget(
+        this.registeredEditor,
+        this.editorCommandTarget
+      );
+      this.registeredEditor = null;
+    }
   }
 
   protected onLoad() {
@@ -93,8 +123,6 @@ class TypewriterModeCM6Plugin {
 
     this.domResizeObserver = new ResizeObserver(this.onResizeBound);
     this.domResizeObserver.observe(this.view.dom.ownerDocument.body);
-
-    window.addEventListener("moveByCommand", this.moveByCommandBound);
 
     this.watchEmbeddedMarkdown();
     this.tableWidgetObserver = new MutationObserver(
@@ -112,7 +140,7 @@ class TypewriterModeCM6Plugin {
     );
     this.onReconfigured();
 
-    window.requestAnimationFrame(() => {
+    this.scheduleAnimationFrame(() => {
       this.restoreCursorPosition(this.view);
     });
   }
@@ -130,45 +158,29 @@ class TypewriterModeCM6Plugin {
   }
 
   private inspectTransactions(update: ViewUpdate) {
-    const userEvents: string[] = [];
-    let isReconfigured = false;
-    for (const tr of update.transactions) {
-      if (tr.reconfigured) {
-        isReconfigured = true;
-      }
-
-      const event = tr.annotation(Transaction.userEvent);
-      if (event !== undefined) {
-        userEvents.push(event);
-      }
-    }
-
-    if (userEvents.length === 0) {
-      return {
-        isReconfigured,
-        isUserEvent: false,
-        allowedUserEvents: null,
-      };
-    }
-
-    const allowedUserEvents = userEvents.reduce<boolean>(
-      (result, event) => result && this.userEventAllowed(event),
-      userEvents.length > 0
+    return inspectTransactionState(
+      update.transactions.map((transaction) => ({
+        reconfigured: transaction.reconfigured,
+        userEvent: transaction.annotation(Transaction.userEvent) ?? undefined,
+      })),
+      (event) => this.userEventAllowed(event)
     );
-    return {
-      isReconfigured: false,
-      isUserEvent: true,
-      allowedUserEvents,
-    };
   }
 
   update(update: ViewUpdate) {
+    this.measurementGeneration += 1;
     const { isReconfigured, isUserEvent, allowedUserEvents } =
       this.inspectTransactions(update);
 
-    if (this.isTableCell()) {
+    this.syncEditorCommandTarget();
+    const editorFilePath = this.getEditorFilePath(this.view);
+    const fileChanged = editorFilePath !== this.editorFilePath;
+    if (fileChanged) {
+      this.editorFilePath = editorFilePath;
+      this.isPerWindowPropsReloadRequired = true;
       this.destroyCurrentLine();
-      return;
+      this.clearScrollState();
+      this.resetPadding(this.view);
     }
 
     if (isReconfigured) {
@@ -176,11 +188,23 @@ class TypewriterModeCM6Plugin {
     }
 
     if (this.isDisabled()) {
+      this.clearDecorations();
+      this.destroyCurrentLine();
+      this.resetPadding(this.view);
       return;
+    }
+
+    if (fileChanged) {
+      this.restoreCursorPosition(this.view);
     }
 
     if (this.isPerWindowPropsReloadRequired) {
       this.updateAfterExternalEvent();
+      return;
+    }
+
+    if (this.isTableCell()) {
+      this.destroyCurrentLine();
       return;
     }
 
@@ -233,12 +257,31 @@ class TypewriterModeCM6Plugin {
     this.scheduleTableOverlayCheck();
   }
 
+  private scheduleAnimationFrame(callback: () => void): number | null {
+    if (this.isDestroyed) {
+      return null;
+    }
+
+    let frame = 0;
+    frame = window.requestAnimationFrame(() => {
+      this.pendingAnimationFrames.delete(frame);
+      if (!this.isDestroyed) {
+        callback();
+      }
+    });
+    this.pendingAnimationFrames.add(frame);
+    return frame;
+  }
+
   private scheduleTableOverlayCheck(remainingFrames = 4) {
-    if (this.tableOverlayCheckFrame !== null) {
+    if (this.isDestroyed || this.tableOverlayCheckFrame !== null) {
       return;
     }
 
-    this.tableOverlayCheckFrame = window.requestAnimationFrame(() => {
+    this.tableOverlayCheckFrame = this.scheduleAnimationFrame(() => {
+      if (this.isDestroyed) {
+        return;
+      }
       this.tableOverlayCheckFrame = null;
       if (this.removeCurrentLineIfOverTable()) {
         return;
@@ -294,39 +337,11 @@ class TypewriterModeCM6Plugin {
     const activeLineNumber = doc.lineAt(
       this.view.state.selection.main.head
     ).number;
-    const getLineText = (lineNumber: number) =>
-      lineNumber >= 1 && lineNumber <= doc.lines
-        ? doc.line(lineNumber).text.trim()
-        : "";
-    const isTableRow = (text: string) => markdownTableRowPattern.test(text);
-    const isTableSeparator = (text: string) =>
-      markdownTableSeparatorPattern.test(text);
-
-    const activeLineText = getLineText(activeLineNumber);
-    if (isTableRow(activeLineText) || isTableSeparator(activeLineText)) {
-      return true;
-    }
-
-    // Live Preview may keep the caret on the blank line immediately before
-    // the table while rendering the whole table as one oversized widget.
-    const nextLineText = getLineText(activeLineNumber + 1);
-    const lineAfterNextText = getLineText(activeLineNumber + 2);
-    if (
-      activeLineText === "" &&
-      isTableRow(nextLineText) &&
-      isTableSeparator(lineAfterNextText)
-    ) {
-      return true;
-    }
-
-    const previousLineText = getLineText(activeLineNumber - 1);
-    const lineBeforePreviousText = getLineText(activeLineNumber - 2);
-    return (
-      activeLineText === "" &&
-      isTableRow(previousLineText) &&
-      (isTableRow(lineBeforePreviousText) ||
-        isTableSeparator(lineBeforePreviousText))
+    const lines = Array.from(
+      { length: doc.lines },
+      (_, index) => doc.line(index + 1).text
     );
+    return isMarkdownTableBlock(lines, activeLineNumber);
   }
 
   private onFocusIn(event: FocusEvent) {
@@ -349,20 +364,63 @@ class TypewriterModeCM6Plugin {
     }
   }
 
-  private isMarkdownFile() {
-    const view = this.tm.plugin.app.workspace.getActiveViewOfType(ItemView);
-    if (!view) {
-      // We currently do not have an active view. After a new view gets active, the per window props must be reloaded.
-      this.isPerWindowPropsReloadRequired = true;
-      return false;
+  private getEditorInfo(view: EditorView = this.view) {
+    try {
+      return view.state.field(editorInfoField, false);
+    } catch {
+      return;
     }
-    return view.getViewType() === "markdown";
   }
 
-  private isDisabledInFrontmatter() {
-    const file = this.tm.plugin.app.workspace.getActiveFile();
+  private getEditorFilePath(view: EditorView = this.view) {
+    return getEditorFilePath(this.getEditorInfo(view));
+  }
+
+  private getEditorFile(view: EditorView = this.view) {
+    return this.getEditorInfo(view)?.file ?? null;
+  }
+
+  private syncEditorCommandTarget() {
+    const editor = this.getEditorInfo()?.editor;
+    const nextEditor =
+      editor && (typeof editor === "object" || typeof editor === "function")
+        ? (editor as object)
+        : null;
+    if (nextEditor === this.registeredEditor) {
+      return;
+    }
+
+    if (this.registeredEditor) {
+      unregisterEditorCommandTarget(
+        this.registeredEditor,
+        this.editorCommandTarget
+      );
+    }
+
+    this.registeredEditor = nextEditor;
+    if (nextEditor) {
+      registerEditorCommandTarget(nextEditor, this.editorCommandTarget);
+    }
+  }
+
+  private setEditorDisabledState(
+    disabled: boolean,
+    view: EditorView = this.view
+  ) {
+    view.dom.classList.toggle("ptm-editor-disabled", disabled);
+  }
+
+  private isMarkdownFile(view: EditorView = this.view) {
+    const hasFile = this.getEditorFilePath(view) !== null;
+    if (!hasFile) {
+      this.isPerWindowPropsReloadRequired = true;
+    }
+    return hasFile;
+  }
+
+  private isDisabledInFrontmatter(view: EditorView = this.view) {
+    const file = this.getEditorFile(view);
     if (!file) {
-      // We currently do not have an active file. After a new file gets active, the per window props must be reloaded.
       this.isPerWindowPropsReloadRequired = true;
       return false;
     }
@@ -388,10 +446,9 @@ class TypewriterModeCM6Plugin {
     );
   }
 
-  private isDisabledByFilePaths() {
-    const file = this.tm.plugin.app.workspace.getActiveFile();
+  private isDisabledByFilePaths(view: EditorView = this.view) {
+    const file = this.getEditorFile(view);
     if (!file) {
-      // We currently do not have an active file. After a new file gets active, the per window props must be reloaded.
       this.isPerWindowPropsReloadRequired = true;
       return false;
     }
@@ -437,22 +494,21 @@ class TypewriterModeCM6Plugin {
     }
   }
 
-  private isDisabled() {
+  private isDisabled(view: EditorView = this.view) {
+    let disabled = false;
     if (!this.tm.settings.general.isPluginActivated) {
-      return true;
+      disabled = true;
+    } else if (this.isDisabledByPlatform()) {
+      disabled = true;
+    } else if (!this.isMarkdownFile(view)) {
+      disabled = true;
+    } else if (this.isDisabledByFilePaths(view)) {
+      disabled = true;
+    } else if (this.isDisabledInFrontmatter(view)) {
+      disabled = true;
     }
-    if (this.isDisabledByPlatform()) {
-      return true;
-    }
-    if (!this.isMarkdownFile()) {
-      return true;
-    }
-    if (this.isDisabledByFilePaths()) {
-      return true;
-    }
-    if (this.isDisabledInFrontmatter()) {
-      return true;
-    }
+    this.setEditorDisabledState(disabled, view);
+    return disabled;
   }
 
   private onReconfigured(): void {
@@ -461,6 +517,7 @@ class TypewriterModeCM6Plugin {
     this.isPerWindowPropsReloadRequired = true;
 
     if (this.isDisabled()) {
+      this.clearDecorations();
       this.destroyCurrentLine();
       this.resetPadding(this.view);
       this.loadPerWindowProps();
@@ -473,7 +530,10 @@ class TypewriterModeCM6Plugin {
   private watchEmbeddedMarkdown() {
     const selector = ".markdown-embed-content iframe.embed-iframe";
     const props = this.tm.perWindowProps;
-    const observer = new MutationObserver((mutations) => {
+    this.embeddedMarkdownObserver = new MutationObserver((mutations) => {
+      if (this.isDestroyed) {
+        return;
+      }
       mutations.forEach((mutation) => {
         [].forEach.call(mutation.addedNodes, (node: Node) => {
           if (
@@ -489,7 +549,7 @@ class TypewriterModeCM6Plugin {
         });
       });
     });
-    observer.observe(this.view.dom.ownerDocument, {
+    this.embeddedMarkdownObserver.observe(this.view.dom.ownerDocument, {
       childList: true,
       subtree: true,
     });
@@ -504,9 +564,7 @@ class TypewriterModeCM6Plugin {
     }
 
     el.addClasses(props.persistentBodyClasses);
-    if (!this.isDisabled()) {
-      el.addClasses(props.bodyClasses);
-    }
+    el.addClasses(props.bodyClasses);
 
     el.setCssProps(props.cssVariables);
     el.setAttrs(props.bodyAttrs);
@@ -681,24 +739,49 @@ class TypewriterModeCM6Plugin {
 
   private measureTypewriterPosition(
     key: string,
-    write: (measure: TypewriterPositionData, view: EditorView) => void
-  ) {
-    this.view.requestMeasure({
-      key,
-      read: (view: EditorView) =>
-        new TypewriterOffsetCalculator(
-          this.tm,
-          view
-        ).getTypewriterPositionData(),
-      write: (measure, view) => {
-        if (!measure) {
-          return;
-        }
-        window.requestAnimationFrame(() => {
-          write(measure, view);
-        });
-      },
-    });
+    write: (measure: TypewriterPositionData | null, view: EditorView) => void
+  ): boolean {
+    if (this.isDestroyed) {
+      return false;
+    }
+
+    const generation = this.measurementGeneration;
+    const expectedFilePath = this.getEditorFilePath(this.view);
+    const expectedDocument = this.view.state.doc;
+
+    try {
+      this.view.requestMeasure({
+        key,
+        read: (view: EditorView) => {
+          try {
+            return new TypewriterOffsetCalculator(
+              this.tm,
+              view
+            ).getTypewriterPositionData();
+          } catch (error) {
+            console.error("Failed to measure Typewriter Mode position:", error);
+            return null;
+          }
+        },
+        write: (measure, view) => {
+          this.scheduleAnimationFrame(() => {
+            if (
+              this.isDestroyed ||
+              generation !== this.measurementGeneration ||
+              this.getEditorFilePath(view) !== expectedFilePath ||
+              view.state.doc !== expectedDocument
+            ) {
+              return;
+            }
+            write(measure, view);
+          });
+        },
+      });
+      return true;
+    } catch (error) {
+      console.error("Failed to request Typewriter Mode measurement:", error);
+      return false;
+    }
   }
 
   private updateAllowedUserEvent() {
@@ -720,10 +803,12 @@ class TypewriterModeCM6Plugin {
 
     this.isRenderingAllowedUserEvent = true;
 
-    this.measureTypewriterPosition(
+    const isMeasureScheduled = this.measureTypewriterPosition(
       "TypewriterModeUpdateAfterAllowedUserEvent",
       (measure, view) => {
         if (!measure) {
+          this.isRenderingAllowedUserEvent = false;
+          this.setupScrollListener();
           return;
         }
         this.recenterAndMoveCurrentLine(view, measure);
@@ -732,6 +817,10 @@ class TypewriterModeCM6Plugin {
         this.setupScrollListener();
       }
     );
+    if (!isMeasureScheduled) {
+      this.isRenderingAllowedUserEvent = false;
+      this.setupScrollListener();
+    }
   }
 
   private updateDisallowedUserEvent() {
@@ -742,6 +831,7 @@ class TypewriterModeCM6Plugin {
     }
 
     this.clearScrollState();
+    this.applyDecorations();
 
     const editorDom = getEditorDom(this.view);
 
@@ -790,7 +880,15 @@ class TypewriterModeCM6Plugin {
     }
   }
 
-  private moveByCommand() {
+  private moveByCommand(command: TypewriterMoveCommand) {
+    const editorInfo = this.getEditorInfo();
+    if (!editorInfo?.editor || this.isDisabled()) {
+      return;
+    }
+
+    const editor = editorInfo?.editor as { exec?: (command: string) => void };
+    editor.exec?.(command);
+
     const editorDom = getEditorDom(this.view);
     if (editorDom) {
       editorDom.classList.remove("ptm-select");
@@ -801,6 +899,9 @@ class TypewriterModeCM6Plugin {
   private onResize() {
     this.scheduleTableOverlayCheck();
     if (this.isDisabled()) {
+      this.clearDecorations();
+      this.destroyCurrentLine();
+      this.resetPadding(this.view);
       return;
     }
     this.updateAfterExternalEvent();
@@ -836,6 +937,7 @@ class TypewriterModeCM6Plugin {
       !this.tm.settings.dimming.isDimUnfocusedEnabled ||
       this.tm.settings.dimming.dimUnfocusedMode !== "sentences"
     ) {
+      this.clearDecorations();
       return;
     }
 
@@ -846,20 +948,24 @@ class TypewriterModeCM6Plugin {
     });
   }
 
+  private clearDecorations() {
+    this.decorations = RangeSet.empty;
+  }
+
   private updateAfterExternalEvent() {
     console.debug("updateAfterExternalEvent");
 
     this.scheduleTableOverlayCheck(8);
+
+    this.loadPerWindowProps();
+    this.applyDecorations();
 
     if (this.isTableCell()) {
       this.destroyCurrentLine();
       return;
     }
 
-    this.loadPerWindowProps();
-    this.applyDecorations();
-
-    this.measureTypewriterPosition(
+    const isMeasureScheduled = this.measureTypewriterPosition(
       "TypewriterModeUpdateAfterExternalEvent",
       (measure, view) => {
         this.setupScrollListener();
@@ -875,6 +981,9 @@ class TypewriterModeCM6Plugin {
         this.recenterAndMoveCurrentLine(view, measure);
       }
     );
+    if (!(isMeasureScheduled || this.isDestroyed)) {
+      this.setupScrollListener();
+    }
   }
 
   private moveCurrentLine(
@@ -887,14 +996,7 @@ class TypewriterModeCM6Plugin {
 
     // Obsidian renders a Live Preview Markdown table as one oversized
     // CodeMirror line. Never paint that widget as a normal current line.
-    const activeBlockHeight = view.lineBlockAt(
-      view.state.selection.main.head
-    ).height;
-    if (
-      lineHeight > view.defaultLineHeight * 2 ||
-      activeBlockHeight > view.defaultLineHeight * 2 ||
-      this.isTableCell()
-    ) {
+    if (this.isTableCell()) {
       this.destroyCurrentLine(view);
       return;
     }
@@ -994,13 +1096,25 @@ class TypewriterModeCM6Plugin {
       return;
     }
 
+    const filePath = this.getEditorFilePath(view);
+    if (!filePath) {
+      return;
+    }
+
     this.tm
       .getRestoreCursorPositionFeature()
-      .setCursorState(view.state.selection.main);
+      .setCursorState(filePath, view.state.selection.main);
   }
 
   private restoreCursorPosition(view: EditorView) {
     console.debug("Start restoreCursorPosition");
+
+    if (
+      this.isDestroyed ||
+      !this.tm.settings.restoreCursorPosition.isRestoreCursorPositionEnabled
+    ) {
+      return;
+    }
 
     const rcp = this.tm.getRestoreCursorPositionFeature();
 
@@ -1009,7 +1123,7 @@ class TypewriterModeCM6Plugin {
       console.error("Failed to save cursor state:", error);
     });
 
-    const fileName = this.tm.plugin.app.workspace.getActiveFile()?.path;
+    const fileName = this.getEditorFilePath(view);
 
     if (fileName) {
       const st = rcp.state[fileName];
@@ -1023,10 +1137,34 @@ class TypewriterModeCM6Plugin {
           );
         console.debug("containsFlashingSpan", containsFlashingSpan);
 
-        if (!containsFlashingSpan) {
+        const selection = normalizeSelectionRange(st, view.state.doc.length);
+        if (selection && !containsFlashingSpan) {
           console.debug("Dispatch restoreCursorPosition", fileName, st);
-          // await this.delay(10)
-          view.dispatch({ selection: st });
+          const expectedFilePath = fileName;
+          this.scheduleAnimationFrame(() => {
+            if (
+              this.isDestroyed ||
+              !this.tm.settings.restoreCursorPosition
+                .isRestoreCursorPositionEnabled ||
+              this.getEditorFilePath(view) !== expectedFilePath
+            ) {
+              return;
+            }
+            if (
+              this.tm.plugin.app.workspace.containerEl.querySelector(
+                "span.is-flashing"
+              )
+            ) {
+              return;
+            }
+            const currentSelection = normalizeSelectionRange(
+              st,
+              view.state.doc.length
+            );
+            if (currentSelection) {
+              view.dispatch({ selection: currentSelection });
+            }
+          });
         }
       }
     }

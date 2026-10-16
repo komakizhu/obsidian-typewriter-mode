@@ -1,5 +1,5 @@
 body.ptm-max-chars-per-line {
-  .cm-sizer {
+  .cm-editor:not(.ptm-editor-disabled) .cm-sizer {
     max-width: var(--max-chars-per-line);
     margin: auto;
   }

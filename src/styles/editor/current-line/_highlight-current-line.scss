@@ -37,7 +37,7 @@ body.theme-dark {
 }
 
 body.ptm-current-line-pause-while-scrolling {
-  .cm-editor.ptm-scroll {
+  .cm-editor:not(.ptm-editor-disabled).ptm-scroll {
     .ptm-current-line {
       opacity: 0;
     }
@@ -45,7 +45,7 @@ body.ptm-current-line-pause-while-scrolling {
 }
 
 body.ptm-current-line-pause-while-selecting {
-  .cm-editor.ptm-select {
+  .cm-editor:not(.ptm-editor-disabled).ptm-select {
     .ptm-current-line {
       opacity: 0;
     }

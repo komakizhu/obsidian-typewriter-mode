@@ -1,3 +1,4 @@
+import { dispatchEditorCommand } from "@/cm6/editor-command-registry";
 import type TypewriterModeLib from "@/lib";
 import { AbstractCommand } from "../base/abstract-command";
 
@@ -10,9 +11,8 @@ function registerMoveTypewriterCommand(
   tm.plugin.addCommand({
     id: `move-typewriter-${direction}`,
     name: direction === "up" ? "上移打字机位置" : "下移打字机位置",
-    editorCallback: (editor, _view) => {
-      editor.exec(editorCommand);
-      window.dispatchEvent(new Event("moveByCommand"));
+    editorCallback: (editor) => {
+      dispatchEditorCommand(editor, editorCommand);
     },
   });
 }

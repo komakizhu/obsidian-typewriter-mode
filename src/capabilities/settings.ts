@@ -1,79 +1,12 @@
 import type { Vault } from "obsidian";
-import {
-  CURRENT_LINE_HIGHLIGHT_STYLE,
-  type CurrentLineHighlightStyle,
-  DIM_UNFOCUSED_EDITORS_BEHAVIOR,
-  DIM_UNFOCUSED_MODE,
-  type DimUnfocusedEditorsBehavior,
-  type DimUnfocusedMode,
-  ENABLED_PLATFORMS,
-  type EnabledPlatforms,
-  WRITING_FOCUS_VIGNETTE_STYLE,
-  type WritingFocusVignetteStyle,
-} from "./constants";
 
 export interface GeneralSettings {
-  disabledFilePaths: string[];
-  enabledFilePaths: string[];
-  enabledPlatforms: EnabledPlatforms;
-  isAnnounceUpdatesEnabled: boolean;
-  isOnlyActivateAfterFirstInteractionEnabled: boolean;
   isPluginActivated: boolean;
-  version: string | null;
-}
-
-export interface TypewriterSettings {
-  isOnlyMaintainTypewriterOffsetWhenReachedEnabled: boolean;
-  isTypewriterOnlyUseCommandsEnabled: boolean;
-  isTypewriterScrollEnabled: boolean;
-  typewriterOffset: number;
-}
-
-export interface KeepLinesAboveAndBelowSettings {
-  isKeepLinesAboveAndBelowEnabled: boolean;
-  linesAboveAndBelow: number;
-}
-
-export interface MaxCharsSettings {
-  isMaxCharsPerLineEnabled: boolean;
-  maxCharsPerLine: number;
-}
-
-export interface DimmingSettings {
-  dimmedOpacity: number;
-  dimUnfocusedEditorsBehavior: DimUnfocusedEditorsBehavior;
-  dimUnfocusedMode: DimUnfocusedMode;
-  isDimHighlightListParentEnabled: boolean;
-  isDimTableAsOneEnabled: boolean;
-  isDimUnfocusedEnabled: boolean;
-  isDimUnfocusedOnlyInWritingFocusModeEnabled: boolean;
-  isPauseDimUnfocusedWhileScrollingEnabled: boolean;
-  isPauseDimUnfocusedWhileSelectingEnabled: boolean;
 }
 
 export interface CurrentLineSettings {
-  "currentLineHighlightColor-dark": string;
-  "currentLineHighlightColor-light": string;
-  currentLineHighlightStyle: CurrentLineHighlightStyle;
-  currentLineHighlightUnderlineThickness: number;
-  fadeLinesIntensity: number;
-  isFadeLinesEnabled: boolean;
-  isFadeLinesOnlyInWritingFocusModeEnabled: boolean;
   isHighlightCurrentLineEnabled: boolean;
-  isHighlightCurrentLineOnlyInFocusedEditorEnabled: boolean;
-  isHighlightCurrentLineOnlyInWritingFocusModeEnabled: boolean;
   isHighlightLastBlockInReadingModeEnabled: boolean;
-  isPauseCurrentLineHighlightWhileScrollingEnabled: boolean;
-  isPauseCurrentLineHighlightWhileSelectingEnabled: boolean;
-}
-
-export interface WritingFocusSettings {
-  doesWritingFocusShowHeader: boolean;
-  doesWritingFocusShowStatusBar: boolean;
-  doesWritingFocusShowVignette: boolean;
-  isWritingFocusFullscreen: boolean;
-  writingFocusFontSize: number;
-  writingFocusVignetteStyle: WritingFocusVignetteStyle;
 }
 
 export interface RestoreCursorPositionSettings {
@@ -81,28 +14,13 @@ export interface RestoreCursorPositionSettings {
   isRestoreCursorPositionEnabled: boolean;
 }
 
-export interface HemingwayModeSettings {
-  hemingwayModeStatusBarText: string;
-  isAllowBackspaceInHemingwayModeEnabled: boolean;
-  isHemingwayModeEnabled: boolean;
-  isHemingwayModeOnlyInWritingFocusModeEnabled: boolean;
-  isShowHemingwayModeStatusBarEnabled: boolean;
-}
-
 export interface TypewriterModeSettings {
   currentLine: CurrentLineSettings;
-  dimming: DimmingSettings;
   general: GeneralSettings;
-  hemingwayMode: HemingwayModeSettings;
-  keepLinesAboveAndBelow: KeepLinesAboveAndBelowSettings;
-  maxChars: MaxCharsSettings;
   restoreCursorPosition: RestoreCursorPositionSettings;
-  typewriter: TypewriterSettings;
-  writingFocus: WritingFocusSettings;
 }
 
 // Typesafe dotted-path type for accessing nested settings
-// e.g. "typewriter.isTypewriterScrollEnabled", "general.version"
 export type SettingsPath = {
   [C in keyof TypewriterModeSettings]: `${C & string}.${keyof TypewriterModeSettings[C] & string}`;
 }[keyof TypewriterModeSettings];
@@ -140,282 +58,117 @@ export function setSettingByPath<P extends SettingsPath>(
 
 export const DEFAULT_SETTINGS: TypewriterModeSettings = {
   general: {
-    version: null,
-    isAnnounceUpdatesEnabled: true,
     isPluginActivated: true,
-    isOnlyActivateAfterFirstInteractionEnabled: false,
-    enabledPlatforms: ENABLED_PLATFORMS.BOTH,
-    enabledFilePaths: [],
-    disabledFilePaths: [],
-  },
-  typewriter: {
-    isTypewriterScrollEnabled: true,
-    isOnlyMaintainTypewriterOffsetWhenReachedEnabled: false,
-    isTypewriterOnlyUseCommandsEnabled: false,
-    typewriterOffset: 0.5,
-  },
-  keepLinesAboveAndBelow: {
-    isKeepLinesAboveAndBelowEnabled: false,
-    linesAboveAndBelow: 5,
-  },
-  maxChars: {
-    isMaxCharsPerLineEnabled: false,
-    maxCharsPerLine: 64,
-  },
-  dimming: {
-    isDimUnfocusedEnabled: false,
-    isDimUnfocusedOnlyInWritingFocusModeEnabled: false,
-    isDimHighlightListParentEnabled: false,
-    isDimTableAsOneEnabled: true,
-    dimUnfocusedMode: DIM_UNFOCUSED_MODE.PARAGRAPHS,
-    dimUnfocusedEditorsBehavior: DIM_UNFOCUSED_EDITORS_BEHAVIOR.DIM,
-    dimmedOpacity: 0.25,
-    isPauseDimUnfocusedWhileScrollingEnabled: true,
-    isPauseDimUnfocusedWhileSelectingEnabled: true,
   },
   currentLine: {
     isHighlightCurrentLineEnabled: true,
-    isHighlightCurrentLineOnlyInWritingFocusModeEnabled: false,
-    isFadeLinesEnabled: false,
-    isFadeLinesOnlyInWritingFocusModeEnabled: false,
-    fadeLinesIntensity: 0.5,
-    isHighlightCurrentLineOnlyInFocusedEditorEnabled: false,
     isHighlightLastBlockInReadingModeEnabled: false,
-    isPauseCurrentLineHighlightWhileScrollingEnabled: false,
-    isPauseCurrentLineHighlightWhileSelectingEnabled: false,
-    currentLineHighlightStyle: CURRENT_LINE_HIGHLIGHT_STYLE.BOX,
-    currentLineHighlightUnderlineThickness: 1,
-    "currentLineHighlightColor-dark": "#444444",
-    "currentLineHighlightColor-light": "#dddddd",
-  },
-  writingFocus: {
-    doesWritingFocusShowHeader: false,
-    doesWritingFocusShowStatusBar: false,
-    doesWritingFocusShowVignette: true,
-    isWritingFocusFullscreen: true,
-    writingFocusVignetteStyle: WRITING_FOCUS_VIGNETTE_STYLE.BOX,
-    writingFocusFontSize: 0,
   },
   restoreCursorPosition: {
     isRestoreCursorPositionEnabled: false,
     cursorPositions: {},
   },
-  hemingwayMode: {
-    isHemingwayModeEnabled: false,
-    isHemingwayModeOnlyInWritingFocusModeEnabled: false,
-    isAllowBackspaceInHemingwayModeEnabled: false,
-    isShowHemingwayModeStatusBarEnabled: true,
-    hemingwayModeStatusBarText: "海明威",
-  },
 };
 
-// Legacy flat settings structure for migration
-interface LegacyTypewriterModeSettings {
-  "currentLineHighlightColor-dark": string;
-  "currentLineHighlightColor-light": string;
-  currentLineHighlightStyle: CurrentLineHighlightStyle;
-  currentLineHighlightUnderlineThickness: number;
-  dimmedOpacity: number;
-  dimUnfocusedEditorsBehavior: DimUnfocusedEditorsBehavior;
-  dimUnfocusedMode: DimUnfocusedMode;
-  doesWritingFocusShowHeader: boolean;
-  doesWritingFocusShowStatusBar: boolean;
-  doesWritingFocusShowVignette: boolean;
-  fadeLinesIntensity: number;
-  hemingwayModeStatusBarText: string;
-  isAllowBackspaceInHemingwayModeEnabled: boolean;
-  isAnnounceUpdatesEnabled: boolean;
-  isDimHighlightListParentEnabled: boolean;
-  isDimTableAsOneEnabled: boolean;
-  isDimUnfocusedEnabled: boolean;
-  isFadeLinesEnabled: boolean;
-  isHemingwayModeEnabled: boolean;
-  isHighlightCurrentLineEnabled: boolean;
-  isHighlightCurrentLineOnlyInFocusedEditorEnabled: boolean;
-  isKeepLinesAboveAndBelowEnabled: boolean;
-  isMaxCharsPerLineEnabled: boolean;
-  isOnlyActivateAfterFirstInteractionEnabled: boolean;
-  isOnlyMaintainTypewriterOffsetWhenReachedEnabled: boolean;
-  isPauseDimUnfocusedWhileScrollingEnabled: boolean;
-  isPauseDimUnfocusedWhileSelectingEnabled: boolean;
-  isPluginActivated: boolean;
-  isRestoreCursorPositionEnabled: boolean;
-  isShowHemingwayModeStatusBarEnabled: boolean;
-  isTypewriterOnlyUseCommandsEnabled: boolean;
-  isTypewriterScrollEnabled: boolean;
-  isWritingFocusFullscreen: boolean;
-  linesAboveAndBelow: number;
-  maxCharsPerLine: number;
-  typewriterOffset: number;
-  version: string | null;
-  writingFocusFontSize: number;
-  writingFocusVignetteStyle: WritingFocusVignetteStyle;
+type RawSettings = Record<string, unknown>;
+
+function asRecord(value: unknown): RawSettings | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as RawSettings)
+    : null;
 }
 
-// Migration function to convert legacy flat settings to new grouped settings
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: migration function necessarily handles many legacy fields
-function migrateSettings(
-  legacy: Partial<LegacyTypewriterModeSettings>
-): TypewriterModeSettings {
-  // Migrate from legacy flat format
+function readValue<T>(
+  group: RawSettings | null,
+  key: string,
+  fallback: T,
+  legacyGroup?: RawSettings | null,
+  legacyKey = key
+): T {
+  const value = group?.[key] ?? legacyGroup?.[legacyKey];
+  if (typeof value !== typeof fallback) {
+    return fallback;
+  }
+  if (
+    fallback !== null &&
+    typeof fallback === "object" &&
+    asRecord(value) === null
+  ) {
+    return fallback;
+  }
+  return value as T;
+}
+
+function normalizeSettings(raw: RawSettings): TypewriterModeSettings {
+  const legacy = raw;
+  const general = asRecord(raw.general);
+  const currentLine = asRecord(raw.currentLine);
+  const restoreCursorPosition = asRecord(raw.restoreCursorPosition);
+
   return {
     general: {
-      version: legacy.version ?? DEFAULT_SETTINGS.general.version,
-      isAnnounceUpdatesEnabled:
-        legacy.isAnnounceUpdatesEnabled ??
-        DEFAULT_SETTINGS.general.isAnnounceUpdatesEnabled,
-      isPluginActivated:
-        legacy.isPluginActivated ?? DEFAULT_SETTINGS.general.isPluginActivated,
-      isOnlyActivateAfterFirstInteractionEnabled:
-        legacy.isOnlyActivateAfterFirstInteractionEnabled ??
-        DEFAULT_SETTINGS.general.isOnlyActivateAfterFirstInteractionEnabled,
-      enabledPlatforms: DEFAULT_SETTINGS.general.enabledPlatforms,
-      enabledFilePaths: DEFAULT_SETTINGS.general.enabledFilePaths,
-      disabledFilePaths: DEFAULT_SETTINGS.general.disabledFilePaths,
-    },
-    typewriter: {
-      isTypewriterScrollEnabled:
-        legacy.isTypewriterScrollEnabled ??
-        DEFAULT_SETTINGS.typewriter.isTypewriterScrollEnabled,
-      isOnlyMaintainTypewriterOffsetWhenReachedEnabled:
-        legacy.isOnlyMaintainTypewriterOffsetWhenReachedEnabled ??
-        DEFAULT_SETTINGS.typewriter
-          .isOnlyMaintainTypewriterOffsetWhenReachedEnabled,
-      isTypewriterOnlyUseCommandsEnabled:
-        legacy.isTypewriterOnlyUseCommandsEnabled ??
-        DEFAULT_SETTINGS.typewriter.isTypewriterOnlyUseCommandsEnabled,
-      typewriterOffset:
-        legacy.typewriterOffset ?? DEFAULT_SETTINGS.typewriter.typewriterOffset,
-    },
-    keepLinesAboveAndBelow: {
-      isKeepLinesAboveAndBelowEnabled:
-        legacy.isKeepLinesAboveAndBelowEnabled ??
-        DEFAULT_SETTINGS.keepLinesAboveAndBelow.isKeepLinesAboveAndBelowEnabled,
-      linesAboveAndBelow:
-        legacy.linesAboveAndBelow ??
-        DEFAULT_SETTINGS.keepLinesAboveAndBelow.linesAboveAndBelow,
-    },
-    maxChars: {
-      isMaxCharsPerLineEnabled:
-        legacy.isMaxCharsPerLineEnabled ??
-        DEFAULT_SETTINGS.maxChars.isMaxCharsPerLineEnabled,
-      maxCharsPerLine:
-        legacy.maxCharsPerLine ?? DEFAULT_SETTINGS.maxChars.maxCharsPerLine,
-    },
-    dimming: {
-      isDimUnfocusedEnabled:
-        legacy.isDimUnfocusedEnabled ??
-        DEFAULT_SETTINGS.dimming.isDimUnfocusedEnabled,
-      isDimUnfocusedOnlyInWritingFocusModeEnabled:
-        DEFAULT_SETTINGS.dimming.isDimUnfocusedOnlyInWritingFocusModeEnabled,
-      isDimHighlightListParentEnabled:
-        legacy.isDimHighlightListParentEnabled ??
-        DEFAULT_SETTINGS.dimming.isDimHighlightListParentEnabled,
-      isDimTableAsOneEnabled:
-        legacy.isDimTableAsOneEnabled ??
-        DEFAULT_SETTINGS.dimming.isDimTableAsOneEnabled,
-      dimUnfocusedMode:
-        legacy.dimUnfocusedMode ?? DEFAULT_SETTINGS.dimming.dimUnfocusedMode,
-      dimUnfocusedEditorsBehavior:
-        legacy.dimUnfocusedEditorsBehavior ??
-        DEFAULT_SETTINGS.dimming.dimUnfocusedEditorsBehavior,
-      dimmedOpacity:
-        legacy.dimmedOpacity ?? DEFAULT_SETTINGS.dimming.dimmedOpacity,
-      isPauseDimUnfocusedWhileScrollingEnabled:
-        legacy.isPauseDimUnfocusedWhileScrollingEnabled ??
-        DEFAULT_SETTINGS.dimming.isPauseDimUnfocusedWhileScrollingEnabled,
-      isPauseDimUnfocusedWhileSelectingEnabled:
-        legacy.isPauseDimUnfocusedWhileSelectingEnabled ??
-        DEFAULT_SETTINGS.dimming.isPauseDimUnfocusedWhileSelectingEnabled,
+      isPluginActivated: readValue(
+        general,
+        "isPluginActivated",
+        DEFAULT_SETTINGS.general.isPluginActivated,
+        legacy
+      ),
     },
     currentLine: {
-      isHighlightCurrentLineEnabled:
-        legacy.isHighlightCurrentLineEnabled ??
+      isHighlightCurrentLineEnabled: readValue(
+        currentLine,
+        "isHighlightCurrentLineEnabled",
         DEFAULT_SETTINGS.currentLine.isHighlightCurrentLineEnabled,
-      isHighlightLastBlockInReadingModeEnabled:
+        legacy
+      ),
+      isHighlightLastBlockInReadingModeEnabled: readValue(
+        currentLine,
+        "isHighlightLastBlockInReadingModeEnabled",
         DEFAULT_SETTINGS.currentLine.isHighlightLastBlockInReadingModeEnabled,
-      isHighlightCurrentLineOnlyInWritingFocusModeEnabled:
-        DEFAULT_SETTINGS.currentLine
-          .isHighlightCurrentLineOnlyInWritingFocusModeEnabled,
-      isFadeLinesEnabled:
-        legacy.isFadeLinesEnabled ??
-        DEFAULT_SETTINGS.currentLine.isFadeLinesEnabled,
-      isFadeLinesOnlyInWritingFocusModeEnabled:
-        DEFAULT_SETTINGS.currentLine.isFadeLinesOnlyInWritingFocusModeEnabled,
-      fadeLinesIntensity:
-        legacy.fadeLinesIntensity ??
-        DEFAULT_SETTINGS.currentLine.fadeLinesIntensity,
-      isHighlightCurrentLineOnlyInFocusedEditorEnabled:
-        legacy.isHighlightCurrentLineOnlyInFocusedEditorEnabled ??
-        DEFAULT_SETTINGS.currentLine
-          .isHighlightCurrentLineOnlyInFocusedEditorEnabled,
-      isPauseCurrentLineHighlightWhileScrollingEnabled:
-        DEFAULT_SETTINGS.currentLine
-          .isPauseCurrentLineHighlightWhileScrollingEnabled,
-      isPauseCurrentLineHighlightWhileSelectingEnabled:
-        DEFAULT_SETTINGS.currentLine
-          .isPauseCurrentLineHighlightWhileSelectingEnabled,
-      currentLineHighlightStyle:
-        legacy.currentLineHighlightStyle ??
-        DEFAULT_SETTINGS.currentLine.currentLineHighlightStyle,
-      currentLineHighlightUnderlineThickness:
-        legacy.currentLineHighlightUnderlineThickness ??
-        DEFAULT_SETTINGS.currentLine.currentLineHighlightUnderlineThickness,
-      "currentLineHighlightColor-dark":
-        legacy["currentLineHighlightColor-dark"] ??
-        DEFAULT_SETTINGS.currentLine["currentLineHighlightColor-dark"],
-      "currentLineHighlightColor-light":
-        legacy["currentLineHighlightColor-light"] ??
-        DEFAULT_SETTINGS.currentLine["currentLineHighlightColor-light"],
-    },
-    writingFocus: {
-      doesWritingFocusShowHeader:
-        legacy.doesWritingFocusShowHeader ??
-        DEFAULT_SETTINGS.writingFocus.doesWritingFocusShowHeader,
-      doesWritingFocusShowVignette:
-        legacy.doesWritingFocusShowVignette ??
-        DEFAULT_SETTINGS.writingFocus.doesWritingFocusShowVignette,
-      doesWritingFocusShowStatusBar:
-        legacy.doesWritingFocusShowStatusBar ??
-        DEFAULT_SETTINGS.writingFocus.doesWritingFocusShowStatusBar,
-      isWritingFocusFullscreen:
-        legacy.isWritingFocusFullscreen ??
-        DEFAULT_SETTINGS.writingFocus.isWritingFocusFullscreen,
-      writingFocusVignetteStyle:
-        legacy.writingFocusVignetteStyle ??
-        DEFAULT_SETTINGS.writingFocus.writingFocusVignetteStyle,
-      writingFocusFontSize:
-        legacy.writingFocusFontSize ??
-        DEFAULT_SETTINGS.writingFocus.writingFocusFontSize,
+        legacy
+      ),
     },
     restoreCursorPosition: {
-      isRestoreCursorPositionEnabled:
-        legacy.isRestoreCursorPositionEnabled ??
+      isRestoreCursorPositionEnabled: readValue(
+        restoreCursorPosition,
+        "isRestoreCursorPositionEnabled",
         DEFAULT_SETTINGS.restoreCursorPosition.isRestoreCursorPositionEnabled,
-      cursorPositions: {},
-    },
-    hemingwayMode: {
-      isHemingwayModeEnabled:
-        legacy.isHemingwayModeEnabled ??
-        DEFAULT_SETTINGS.hemingwayMode.isHemingwayModeEnabled,
-      isHemingwayModeOnlyInWritingFocusModeEnabled:
-        DEFAULT_SETTINGS.hemingwayMode
-          .isHemingwayModeOnlyInWritingFocusModeEnabled,
-      isAllowBackspaceInHemingwayModeEnabled:
-        legacy.isAllowBackspaceInHemingwayModeEnabled ??
-        DEFAULT_SETTINGS.hemingwayMode.isAllowBackspaceInHemingwayModeEnabled,
-      isShowHemingwayModeStatusBarEnabled:
-        legacy.isShowHemingwayModeStatusBarEnabled ??
-        DEFAULT_SETTINGS.hemingwayMode.isShowHemingwayModeStatusBarEnabled,
-      hemingwayModeStatusBarText:
-        legacy.hemingwayModeStatusBarText ??
-        DEFAULT_SETTINGS.hemingwayMode.hemingwayModeStatusBarText,
+        legacy
+      ),
+      cursorPositions: readValue(
+        restoreCursorPosition,
+        "cursorPositions",
+        DEFAULT_SETTINGS.restoreCursorPosition.cursorPositions,
+        legacy
+      ),
     },
   };
 }
 
-// Migration function to copy cursor positions from old file to settings
-// Only needed when coming from pre-v1.2.0 (legacy flat format)
+function hasExactKeys(value: unknown, keys: string[]): boolean {
+  const record = asRecord(value);
+  return Boolean(
+    record &&
+      Object.keys(record).length === keys.length &&
+      keys.every((key) => Object.hasOwn(record, key))
+  );
+}
+
+function isCurrentSettingsShape(raw: RawSettings): boolean {
+  return (
+    hasExactKeys(raw, ["general", "currentLine", "restoreCursorPosition"]) &&
+    hasExactKeys(raw.general, ["isPluginActivated"]) &&
+    hasExactKeys(raw.currentLine, [
+      "isHighlightCurrentLineEnabled",
+      "isHighlightLastBlockInReadingModeEnabled",
+    ]) &&
+    hasExactKeys(raw.restoreCursorPosition, [
+      "isRestoreCursorPositionEnabled",
+      "cursorPositions",
+    ])
+  );
+}
+
 async function migrateCursorPositions(
   settings: TypewriterModeSettings,
   vault: Vault,
@@ -439,34 +192,29 @@ async function migrateCursorPositions(
   return settings;
 }
 
-// Apply all startup migrations in a single pass, version-gated via the general.version key.
-// Cursor position migration (from cursor-positions.json) is only needed for pre-v1.2.0 data
-// which is identified by the absence of the top-level "general" key.
 export interface StartupMigrationResult {
   requiresSave: boolean;
   settings: TypewriterModeSettings;
 }
 
 export async function applyStartupMigrations(
-  rawData:
-    | Partial<LegacyTypewriterModeSettings>
-    | Partial<TypewriterModeSettings>,
+  rawData: unknown,
   vault: Vault,
   manifestDir: string
 ): Promise<StartupMigrationResult> {
-  const isLegacyFormat = !("general" in rawData);
+  const raw = asRecord(rawData) ?? {};
+  const isLegacyFormat = !Object.hasOwn(raw, "general");
+  const settings = normalizeSettings(raw);
 
-  // Cursor positions migration only needed when coming from pre-v1.2.0 (legacy flat format).
-  // Since v1.2.0 cursor positions are stored directly in data.json.
   if (isLegacyFormat) {
-    const settings = migrateSettings(
-      rawData as Partial<LegacyTypewriterModeSettings>
-    );
     return {
       requiresSave: true,
       settings: await migrateCursorPositions(settings, vault, manifestDir),
     };
   }
 
-  return { requiresSave: false, settings: rawData as TypewriterModeSettings };
+  return {
+    requiresSave: !isCurrentSettingsShape(raw),
+    settings,
+  };
 }

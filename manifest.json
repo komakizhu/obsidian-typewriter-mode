@@ -3,7 +3,7 @@
   "name": "打字机模式",
   "author": "Davis Riedel",
   "authorUrl": "https://davis-riedel.de/en/software",
-  "description": "打字机滚动、当前行高亮、非焦点段落与句子淡化、写作专注、恢复光标位置等功能。",
+  "description": "当前行高亮与可选的光标位置恢复。",
   "isDesktopOnly": false,
   "version": "1.6.1",
   "minAppVersion": "1.11.0",

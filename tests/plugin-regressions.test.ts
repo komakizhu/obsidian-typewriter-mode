@@ -37,11 +37,9 @@ function loadPluginClass() {
       isPhone: false,
     },
     EditorView: { scrollIntoView: () => ({}) },
-    TypewriterOffsetCalculator: class {},
     getEditorDom: (view: { dom: unknown }) => view.dom,
     getScrollDom: (view: { scrollDOM?: unknown; dom: unknown }) =>
       view.scrollDOM ?? view.dom,
-    getSizerDom: () => null,
     getActiveSentenceDecos: () => ({}),
     getEditorFilePath,
     normalizeSelectionRange,
@@ -144,29 +142,6 @@ describe("Typewriter Mode plugin regressions", () => {
     expect(dispatches).toEqual([]);
   });
 
-  test("routes the move command only to its target editor", () => {
-    const plugin = makePlugin();
-    const targetEditor = { exec: (_command: string) => {} };
-    let executed = 0;
-    targetEditor.exec = () => {
-      executed += 1;
-    };
-    plugin.getEditorInfo = () => ({
-      file: { path: "A.md" },
-      editor: targetEditor,
-    });
-    plugin.isDisabled = () => false;
-    plugin.updateAllowedUserEvent = () => {};
-    plugin.view = { dom: { classList: { remove() {} } } };
-
-    plugin.moveByCommand("goUp");
-    expect(executed).toBe(1);
-
-    plugin.isDisabled = () => true;
-    plugin.moveByCommand("goDown");
-    expect(executed).toBe(1);
-  });
-
   test("cleans the embedded markdown observer on destroy", () => {
     const plugin = makePlugin();
     const document = { removeEventListener() {} };
@@ -174,6 +149,7 @@ describe("Typewriter Mode plugin regressions", () => {
     plugin.view = {
       dom: {
         ownerDocument: document,
+        removeEventListener() {},
         classList: { remove() {} },
       },
     };
@@ -185,7 +161,6 @@ describe("Typewriter Mode plugin regressions", () => {
     plugin.watchEmbeddedMarkdown();
     const observer = pluginContext.MutationObserver.instances.at(-1);
     plugin.destroyCurrentLine = () => {};
-    plugin.clearScrollState = () => {};
     plugin.removeScrollListener = () => {};
     plugin.destroy();
     expect(observer?.connected).toBe(false);
@@ -195,16 +170,7 @@ describe("Typewriter Mode plugin regressions", () => {
     const plugin = makePlugin();
     let listeners = 0;
     plugin.tm = {
-      settings: {
-        dimming: {
-          isDimUnfocusedEnabled: false,
-          dimUnfocusedMode: "sentences",
-        },
-        currentLine: {
-          isHighlightCurrentLineEnabled: true,
-          isFadeLinesEnabled: false,
-        },
-      },
+      settings: { currentLine: { isHighlightCurrentLineEnabled: true } },
     };
     plugin.view = { dom: { classList: { remove() {}, add() {} } } };
     plugin.isInitialInteraction = false;
@@ -214,9 +180,7 @@ describe("Typewriter Mode plugin regressions", () => {
     plugin.setupScrollListener = () => {
       listeners += 1;
     };
-    plugin.applyDecorations = () => {};
-    plugin.clearScrollState = () => {};
-    plugin.measureTypewriterPosition = (_key: string, callback: Function) => {
+    plugin.measureCurrentLinePosition = (_key: string, callback: Function) => {
       callback(null, plugin.view);
       return true;
     };
@@ -225,7 +189,7 @@ describe("Typewriter Mode plugin regressions", () => {
     expect(plugin.isRenderingAllowedUserEvent).toBe(false);
     expect(listeners).toBe(0);
 
-    plugin.measureTypewriterPosition = () => false;
+    plugin.measureCurrentLinePosition = () => false;
     plugin.updateAllowedUserEvent();
     expect(plugin.isRenderingAllowedUserEvent).toBe(false);
     expect(listeners).toBe(0);
@@ -252,7 +216,7 @@ describe("Typewriter Mode plugin regressions", () => {
     plugin.isDestroyed = false;
     plugin.measurementGeneration = 1;
     plugin.scheduleAnimationFrame = (callback: () => void) => callback();
-    PluginClass.prototype.measureTypewriterPosition.call(
+    PluginClass.prototype.measureCurrentLinePosition.call(
       plugin,
       "stale-measurement",
       (measure: unknown) => writes.push(measure)

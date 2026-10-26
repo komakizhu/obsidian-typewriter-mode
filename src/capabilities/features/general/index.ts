@@ -1,16 +1,11 @@
 import type TypewriterModeLib from "@/lib";
-import EnabledFilePaths from "./enabled-file-paths";
-import EnabledPlatforms from "./enabled-platforms";
-import OnlyActivateAfterFirstInteraction from "./only-activate-after-first-interaction";
 import TogglePluginActivation from "./toggle-plugin-activation";
 
 export default function getGeneralFeatures(tm: TypewriterModeLib) {
   return Object.fromEntries(
-    [
-      new TogglePluginActivation(tm),
-      new EnabledPlatforms(tm),
-      new OnlyActivateAfterFirstInteraction(tm),
-      new EnabledFilePaths(tm),
-    ].map((feature) => [feature.getSettingKey(), feature])
+    [new TogglePluginActivation(tm)].map((feature) => [
+      feature.getSettingKey(),
+      feature,
+    ])
   );
 }

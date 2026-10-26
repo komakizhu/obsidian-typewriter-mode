@@ -1,9 +1,8 @@
-import type { Extension } from "@codemirror/state";
+import { type Extension, Transaction } from "@codemirror/state";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import {
   type MarkdownPostProcessorContext,
   type MarkdownView,
-  Platform,
   TFile,
   type WorkspaceLeaf,
 } from "obsidian";
@@ -80,8 +79,14 @@ export default class ReadingModeHighlight {
     const manager = this;
     return ViewPlugin.fromClass(
       class {
+        private readonly view: EditorView;
+        private readonly onInteraction: () => void;
+
         constructor(view: EditorView) {
-          manager.recordEditorPosition(view);
+          this.view = view;
+          this.onInteraction = () => manager.recordEditorPosition(view);
+          view.dom.addEventListener("pointerdown", this.onInteraction);
+          view.dom.addEventListener("keydown", this.onInteraction);
         }
 
         update(update: ViewUpdate) {
@@ -90,9 +95,24 @@ export default class ReadingModeHighlight {
             manager.getMarkdownView(update.view)?.getMode() !== "source"
           ) {
             manager.forgetPosition(update.view);
-          } else if (update.docChanged || update.selectionSet) {
+            return;
+          }
+
+          const hasUserInteraction = update.transactions.some(
+            (transaction) =>
+              transaction.annotation(Transaction.userEvent) !== undefined
+          );
+          if (
+            hasUserInteraction &&
+            (update.docChanged || update.selectionSet)
+          ) {
             manager.recordEditorPosition(update.view);
           }
+        }
+
+        destroy() {
+          this.view.dom.removeEventListener("pointerdown", this.onInteraction);
+          this.view.dom.removeEventListener("keydown", this.onInteraction);
         }
       }
     );
@@ -106,13 +126,7 @@ export default class ReadingModeHighlight {
     this.tm.plugin.registerEvent(
       this.tm.plugin.app.workspace.on("layout-change", this.onLayoutChange)
     );
-    if (this.isReadingFeatureEnabled()) {
-      for (const leaf of this.tm.plugin.app.workspace.getLeavesOfType(
-        "markdown"
-      )) {
-        this.ensureLeafObserver(leaf);
-      }
-    }
+    this.refresh();
   }
 
   unload() {
@@ -162,20 +176,9 @@ export default class ReadingModeHighlight {
       } else {
         this.disconnectLeafObserver(leaf);
       }
-      if (view.getMode() !== "source") {
+      if (view.getMode() === "preview") {
         this.applyHighlightForLeaf(leaf);
-        continue;
       }
-      const filePath = view.file?.path;
-      if (!filePath) {
-        continue;
-      }
-      const cursor = view.editor.getCursor();
-      this.positions.set(leaf, {
-        filePath,
-        line: cursor.line,
-        source: view.editor.getValue(),
-      });
     }
   }
 
@@ -257,7 +260,7 @@ export default class ReadingModeHighlight {
     }
   }
 
-  private isEnabledFor(view: MarkdownView, filePath: string): boolean {
+  private isEnabledFor(view: MarkdownView): boolean {
     const settings = this.tm.settings;
     if (
       !(
@@ -265,58 +268,6 @@ export default class ReadingModeHighlight {
         settings.currentLine.isHighlightCurrentLineEnabled &&
         settings.currentLine.isHighlightLastBlockInReadingModeEnabled
       )
-    ) {
-      return false;
-    }
-
-    if (
-      settings.currentLine
-        .isHighlightCurrentLineOnlyInWritingFocusModeEnabled &&
-      !document.body.classList.contains("ptm-focus-mode")
-    ) {
-      return false;
-    }
-
-    switch (settings.general.enabledPlatforms) {
-      case "desktop":
-        if (Platform.isMobile) {
-          return false;
-        }
-        break;
-      case "mobile":
-        if (Platform.isDesktop) {
-          return false;
-        }
-        break;
-      case "tablet":
-        if (!Platform.isTablet) {
-          return false;
-        }
-        break;
-      case "phone":
-        if (!Platform.isPhone) {
-          return false;
-        }
-        break;
-      case "desktop-and-tablet":
-        if (Platform.isPhone) {
-          return false;
-        }
-        break;
-      default:
-        break;
-    }
-
-    const matchesPath = (configuredPath: string) =>
-      configuredPath === "" ||
-      filePath === configuredPath ||
-      filePath.startsWith(`${configuredPath}/`);
-    if (settings.general.disabledFilePaths.some(matchesPath)) {
-      return false;
-    }
-    if (
-      settings.general.enabledFilePaths.length > 0 &&
-      !settings.general.enabledFilePaths.some(matchesPath)
     ) {
       return false;
     }
@@ -419,7 +370,7 @@ export default class ReadingModeHighlight {
       this.clearLeafHighlights(leaf);
       return;
     }
-    if (!this.isEnabledFor(view, filePath)) {
+    if (!this.isEnabledFor(view)) {
       this.clearLeafHighlights(leaf);
       return;
     }
@@ -674,6 +625,22 @@ export default class ReadingModeHighlight {
     this.highlights.delete(leaf);
   }
 
+  private syncPreviewPosition(
+    leaf: WorkspaceLeaf,
+    view: MarkdownView,
+    filePath: string
+  ) {
+    const position = this.positions.get(leaf);
+    if (
+      position &&
+      (position.filePath !== filePath ||
+        position.source !== view.editor.getValue())
+    ) {
+      this.positions.delete(leaf);
+      this.clearLeafHighlights(leaf);
+    }
+  }
+
   private onLayoutChange() {
     const openLeaves = new Set(
       this.tm.plugin.app.workspace.getLeavesOfType("markdown")
@@ -701,12 +668,17 @@ export default class ReadingModeHighlight {
       }
       const filePath = view.file?.path;
       const position = this.positions.get(leaf);
-      if (!filePath || (position && position.filePath !== filePath)) {
+      if (!filePath) {
         this.positions.delete(leaf);
         this.clearLeafHighlights(leaf);
         this.clearRenderedBlockAttributes(leaf);
       } else if (view.getMode() === "preview") {
+        this.syncPreviewPosition(leaf, view, filePath);
         this.applyHighlightForLeaf(leaf);
+      } else if (position && position.filePath !== filePath) {
+        this.positions.delete(leaf);
+        this.clearLeafHighlights(leaf);
+        this.clearRenderedBlockAttributes(leaf);
       } else {
         this.clearLeafHighlights(leaf);
       }

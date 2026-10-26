@@ -1,39 +1,21 @@
-import { RangeSet, Transaction } from "@codemirror/state";
-import {
-  type Decoration,
-  EditorView,
-  ViewPlugin,
-  type ViewUpdate,
-} from "@codemirror/view";
+import { Transaction } from "@codemirror/state";
+import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { editorInfoField, Platform } from "obsidian";
+import type { CurrentLinePositionData } from "@/cm6/current-line-position-calculator";
+import { CurrentLinePositionCalculator } from "@/cm6/current-line-position-calculator";
 import type { PerWindowProps } from "@/cm6/per-window-props";
-import type { TypewriterPositionData } from "@/cm6/typewriter-offset-calculator";
-import { TypewriterOffsetCalculator } from "@/cm6/typewriter-offset-calculator";
 import type TypewriterModeLib from "@/lib";
-import {
-  registerEditorCommandTarget,
-  type TypewriterMoveCommand,
-  unregisterEditorCommandTarget,
-} from "./editor-command-registry";
 import { getEditorFilePath } from "./editor-identity";
-import { getActiveSentenceDecos } from "./highlight-sentence";
 import { normalizeSelectionRange } from "./selection-utils";
-import { getEditorDom, getScrollDom, getSizerDom } from "./selectors";
+import { getEditorDom, getScrollDom } from "./selectors";
 import { isMarkdownTableBlock } from "./table-detection";
 import { inspectTransactionState } from "./transaction-state";
 
 const currentLineClass = "ptm-current-line";
 
-// these elements are a workaround, because webkit does not allow
-// ::before and ::after elements to have a different mix-blend-mode than their parent
-const fadeBeforeClass = "ptm-current-line-fade-before";
-const fadeAfterClass = "ptm-current-line-fade-after";
-
-// Regex patterns for user event validation
+// Pointer selection moves the highlighted line but does not recenter the view.
 const USER_EVENT_ALLOWED_DEFAULT = /^(select|input|delete|undo|redo)(\..+)?$/;
 const USER_EVENT_DISALLOWED_DEFAULT = /^(select.pointer)$/;
-const USER_EVENT_ALLOWED_COMMANDS_ONLY = /^(input|delete|undo|redo)(\..+)?$/;
-const USER_EVENT_DISALLOWED_COMMANDS_ONLY = /^(select)(\..+)?$/;
 class TypewriterModeCM6Plugin {
   protected tm: TypewriterModeLib;
   protected view: EditorView;
@@ -47,36 +29,26 @@ class TypewriterModeCM6Plugin {
 
   private readonly onScrollEventKey: "wheel" | "touchmove";
   private isListeningToOnScroll = false;
-  private isOnScrollClassSet = false;
-  private isScrolling = false;
-  private scrollEndTimeout: number | null = null;
 
   private isInitialInteraction = true;
   private isRenderingAllowedUserEvent = false;
   private isNestedEditorFocused = false;
-  decorations: RangeSet<Decoration> = RangeSet.empty;
 
   private isPerWindowPropsReloadRequired = false;
   private editorFilePath: string | null = null;
-  private registeredEditor: object | null = null;
   private measurementGeneration = 0;
 
-  private readonly editorCommandTarget = {
-    moveByCommand: (command: TypewriterMoveCommand) =>
-      this.moveByCommand(command),
-  };
-
   private readonly onScrollBound = this.onScroll.bind(this);
-  private readonly onScrollEndBound = this.onScrollEnd.bind(this);
   private readonly onResizeBound = this.onResize.bind(this);
   private readonly onFocusInBound = this.onFocusIn.bind(this);
+  private readonly onEditorInteractionBound =
+    this.onEditorInteraction.bind(this);
   private readonly onTableDomMutationBound = this.onTableDomMutation.bind(this);
 
   constructor(tm: TypewriterModeLib, view: EditorView) {
     this.tm = tm;
     this.view = view;
     this.editorFilePath = this.getEditorFilePath(view);
-    this.syncEditorCommandTarget();
 
     this.onScrollEventKey = Platform.isMobile ? "touchmove" : "wheel";
 
@@ -98,24 +70,18 @@ class TypewriterModeCM6Plugin {
     this.pendingAnimationFrames.clear();
 
     this.destroyCurrentLine();
-    this.clearScrollState();
-
     this.removeScrollListener();
+    this.view.dom.removeEventListener(
+      "pointerdown",
+      this.onEditorInteractionBound
+    );
+    this.view.dom.removeEventListener("keydown", this.onEditorInteractionBound);
 
     this.view.dom.ownerDocument.removeEventListener(
       "focusin",
       this.onFocusInBound,
       true
     );
-    this.view.dom.classList.remove("ptm-editor-disabled");
-
-    if (this.registeredEditor) {
-      unregisterEditorCommandTarget(
-        this.registeredEditor,
-        this.editorCommandTarget
-      );
-      this.registeredEditor = null;
-    }
   }
 
   protected onLoad() {
@@ -138,6 +104,12 @@ class TypewriterModeCM6Plugin {
       this.onFocusInBound,
       true
     );
+    this.view.dom.addEventListener(
+      "pointerdown",
+      this.onEditorInteractionBound
+    );
+    this.view.dom.addEventListener("keydown", this.onEditorInteractionBound);
+    this.view.dom.classList.add("ptm-first-open");
     this.onReconfigured();
 
     this.scheduleAnimationFrame(() => {
@@ -146,15 +118,10 @@ class TypewriterModeCM6Plugin {
   }
 
   private userEventAllowed(event: string) {
-    let allowed = USER_EVENT_ALLOWED_DEFAULT;
-    let disallowed = USER_EVENT_DISALLOWED_DEFAULT;
-
-    if (this.tm.settings.typewriter.isTypewriterOnlyUseCommandsEnabled) {
-      allowed = USER_EVENT_ALLOWED_COMMANDS_ONLY;
-      disallowed = USER_EVENT_DISALLOWED_COMMANDS_ONLY;
-    }
-
-    return allowed.test(event) && !disallowed.test(event);
+    return (
+      USER_EVENT_ALLOWED_DEFAULT.test(event) &&
+      !USER_EVENT_DISALLOWED_DEFAULT.test(event)
+    );
   }
 
   private inspectTransactions(update: ViewUpdate) {
@@ -172,15 +139,12 @@ class TypewriterModeCM6Plugin {
     const { isReconfigured, isUserEvent, allowedUserEvents } =
       this.inspectTransactions(update);
 
-    this.syncEditorCommandTarget();
     const editorFilePath = this.getEditorFilePath(this.view);
     const fileChanged = editorFilePath !== this.editorFilePath;
     if (fileChanged) {
       this.editorFilePath = editorFilePath;
       this.isPerWindowPropsReloadRequired = true;
       this.destroyCurrentLine();
-      this.clearScrollState();
-      this.resetPadding(this.view);
     }
 
     if (isReconfigured) {
@@ -188,9 +152,7 @@ class TypewriterModeCM6Plugin {
     }
 
     if (this.isDisabled()) {
-      this.clearDecorations();
       this.destroyCurrentLine();
-      this.resetPadding(this.view);
       return;
     }
 
@@ -209,7 +171,6 @@ class TypewriterModeCM6Plugin {
     }
 
     if (!isUserEvent) {
-      this.updateNonUserEvent();
       return;
     }
 
@@ -380,36 +341,6 @@ class TypewriterModeCM6Plugin {
     return this.getEditorInfo(view)?.file ?? null;
   }
 
-  private syncEditorCommandTarget() {
-    const editor = this.getEditorInfo()?.editor;
-    const nextEditor =
-      editor && (typeof editor === "object" || typeof editor === "function")
-        ? (editor as object)
-        : null;
-    if (nextEditor === this.registeredEditor) {
-      return;
-    }
-
-    if (this.registeredEditor) {
-      unregisterEditorCommandTarget(
-        this.registeredEditor,
-        this.editorCommandTarget
-      );
-    }
-
-    this.registeredEditor = nextEditor;
-    if (nextEditor) {
-      registerEditorCommandTarget(nextEditor, this.editorCommandTarget);
-    }
-  }
-
-  private setEditorDisabledState(
-    disabled: boolean,
-    view: EditorView = this.view
-  ) {
-    view.dom.classList.toggle("ptm-editor-disabled", disabled);
-  }
-
   private isMarkdownFile(view: EditorView = this.view) {
     const hasFile = this.getEditorFilePath(view) !== null;
     if (!hasFile) {
@@ -438,76 +369,15 @@ class TypewriterModeCM6Plugin {
     return !frontmatter["typewriter-mode"];
   }
 
-  private matchesPath(filePath: string, configuredPath: string): boolean {
-    return (
-      configuredPath === "" ||
-      filePath === configuredPath ||
-      filePath.startsWith(`${configuredPath}/`)
-    );
-  }
-
-  private isDisabledByFilePaths(view: EditorView = this.view) {
-    const file = this.getEditorFile(view);
-    if (!file) {
-      this.isPerWindowPropsReloadRequired = true;
-      return false;
-    }
-
-    const { path: filePath } = file;
-    const { enabledFilePaths, disabledFilePaths } = this.tm.settings.general;
-
-    if (disabledFilePaths?.length > 0) {
-      for (const path of disabledFilePaths) {
-        if (this.matchesPath(filePath, path)) {
-          return true;
-        }
-      }
-    }
-
-    if (enabledFilePaths?.length > 0) {
-      for (const path of enabledFilePaths) {
-        if (this.matchesPath(filePath, path)) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    return false;
-  }
-
-  private isDisabledByPlatform() {
-    const { enabledPlatforms } = this.tm.settings.general;
-    switch (enabledPlatforms) {
-      case "desktop":
-        return Platform.isMobile;
-      case "mobile":
-        return Platform.isDesktop;
-      case "tablet":
-        return !Platform.isTablet;
-      case "phone":
-        return !Platform.isPhone;
-      case "desktop-and-tablet":
-        return Platform.isPhone;
-      default:
-        return false;
-    }
-  }
-
   private isDisabled(view: EditorView = this.view) {
     let disabled = false;
     if (!this.tm.settings.general.isPluginActivated) {
       disabled = true;
-    } else if (this.isDisabledByPlatform()) {
-      disabled = true;
     } else if (!this.isMarkdownFile(view)) {
-      disabled = true;
-    } else if (this.isDisabledByFilePaths(view)) {
       disabled = true;
     } else if (this.isDisabledInFrontmatter(view)) {
       disabled = true;
     }
-    this.setEditorDisabledState(disabled, view);
     return disabled;
   }
 
@@ -517,9 +387,7 @@ class TypewriterModeCM6Plugin {
     this.isPerWindowPropsReloadRequired = true;
 
     if (this.isDisabled()) {
-      this.clearDecorations();
       this.destroyCurrentLine();
-      this.resetPadding(this.view);
       this.loadPerWindowProps();
     } else {
       this.updateAfterExternalEvent();
@@ -620,30 +488,7 @@ class TypewriterModeCM6Plugin {
       currentLineContainer.appendChild(currentLine);
     }
 
-    if (this.tm.settings.currentLine.isFadeLinesEnabled) {
-      let fadeBefore = editorDom.querySelector(
-        `.${fadeBeforeClass}`
-      ) as HTMLElement;
-      let fadeAfter = editorDom.querySelector(
-        `.${fadeAfterClass}`
-      ) as HTMLElement;
-
-      if (!fadeBefore) {
-        fadeBefore = editorDom.ownerDocument.createElement("div");
-        fadeBefore.className = fadeBeforeClass;
-        editorDom.appendChild(fadeBefore);
-      }
-
-      if (!fadeAfter) {
-        fadeAfter = editorDom.ownerDocument.createElement("div");
-        fadeAfter.className = fadeAfterClass;
-        editorDom.appendChild(fadeAfter);
-      }
-
-      return { currentLine, fadeBefore, fadeAfter };
-    }
-
-    return { currentLine };
+    return currentLine;
   }
 
   private destroyCurrentLine(view: EditorView = this.view) {
@@ -657,16 +502,7 @@ class TypewriterModeCM6Plugin {
     const currentLine = editorDom.querySelector(
       `.${currentLineClass}`
     ) as HTMLElement;
-    const fadeBefore = editorDom.querySelector(
-      `.${fadeBeforeClass}`
-    ) as HTMLElement;
-    const fadeAfter = editorDom.querySelector(
-      `.${fadeAfterClass}`
-    ) as HTMLElement;
-
     currentLine?.remove();
-    fadeBefore?.remove();
-    fadeAfter?.remove();
   }
 
   private setupScrollListener() {
@@ -683,9 +519,6 @@ class TypewriterModeCM6Plugin {
       scrollDom.addEventListener("scroll", this.onScrollBound, {
         passive: true,
       });
-      scrollDom.addEventListener("scrollend", this.onScrollEndBound, {
-        passive: true,
-      });
       this.isListeningToOnScroll = true;
     }
   }
@@ -700,46 +533,13 @@ class TypewriterModeCM6Plugin {
     if (scrollDom) {
       scrollDom.removeEventListener(this.onScrollEventKey, this.onScrollBound);
       scrollDom.removeEventListener("scroll", this.onScrollBound);
-      scrollDom.removeEventListener("scrollend", this.onScrollEndBound);
       this.isListeningToOnScroll = false;
     }
   }
 
-  private clearScrollEndTimeout() {
-    if (this.scrollEndTimeout === null) {
-      return;
-    }
-
-    window.clearTimeout(this.scrollEndTimeout);
-    this.scrollEndTimeout = null;
-  }
-
-  private clearScrollState() {
-    this.clearScrollEndTimeout();
-    this.isScrolling = false;
-
-    const editorDom = getEditorDom(this.view);
-    if (editorDom) {
-      editorDom.classList.remove("ptm-scroll");
-    }
-    this.isOnScrollClassSet = false;
-  }
-
-  private scheduleScrollEnd() {
-    this.clearScrollEndTimeout();
-    this.scrollEndTimeout = window.setTimeout(() => {
-      this.scrollEndTimeout = null;
-      this.clearScrollState();
-    }, 120);
-  }
-
-  private onScrollEnd() {
-    this.clearScrollState();
-  }
-
-  private measureTypewriterPosition(
+  private measureCurrentLinePosition(
     key: string,
-    write: (measure: TypewriterPositionData | null, view: EditorView) => void
+    write: (measure: CurrentLinePositionData | null, view: EditorView) => void
   ): boolean {
     if (this.isDestroyed) {
       return false;
@@ -754,12 +554,11 @@ class TypewriterModeCM6Plugin {
         key,
         read: (view: EditorView) => {
           try {
-            return new TypewriterOffsetCalculator(
-              this.tm,
+            return new CurrentLinePositionCalculator(
               view
-            ).getTypewriterPositionData();
+            ).getCurrentLinePositionData();
           } catch (error) {
-            console.error("Failed to measure Typewriter Mode position:", error);
+            console.error("Failed to measure current line position:", error);
             return null;
           }
         },
@@ -779,7 +578,7 @@ class TypewriterModeCM6Plugin {
       });
       return true;
     } catch (error) {
-      console.error("Failed to request Typewriter Mode measurement:", error);
+      console.error("Failed to request current line measurement:", error);
       return false;
     }
   }
@@ -788,30 +587,19 @@ class TypewriterModeCM6Plugin {
     console.debug("updateAllowedUserEvent");
 
     this.removeScrollListener();
-    this.applyDecorations();
-    this.clearScrollState();
-
-    const editorDom = getEditorDom(this.view);
-    if (editorDom) {
-      editorDom.classList.remove("ptm-select");
-
-      if (this.isInitialInteraction) {
-        editorDom.classList.remove("ptm-first-open");
-        this.isInitialInteraction = false;
-      }
-    }
+    this.revealCurrentLineAfterInteraction();
 
     this.isRenderingAllowedUserEvent = true;
 
-    const isMeasureScheduled = this.measureTypewriterPosition(
-      "TypewriterModeUpdateAfterAllowedUserEvent",
+    const isMeasureScheduled = this.measureCurrentLinePosition(
+      "CurrentLineUpdateAfterAllowedUserEvent",
       (measure, view) => {
         if (!measure) {
           this.isRenderingAllowedUserEvent = false;
           this.setupScrollListener();
           return;
         }
-        this.recenterAndMoveCurrentLine(view, measure);
+        this.moveCurrentLineIfEnabled(view, measure);
         this.isRenderingAllowedUserEvent = false;
         this.handleCursorStateUpdate(view);
         this.setupScrollListener();
@@ -830,126 +618,49 @@ class TypewriterModeCM6Plugin {
       return;
     }
 
-    this.clearScrollState();
-    this.applyDecorations();
+    this.revealCurrentLineAfterInteraction();
 
-    const editorDom = getEditorDom(this.view);
-
-    if (editorDom) {
-      if (this.isInitialInteraction) {
-        editorDom.classList.remove("ptm-first-open");
-        this.isInitialInteraction = false;
-      }
-
-      editorDom.classList.add("ptm-select");
-    }
-
-    this.measureTypewriterPosition(
-      "TypewriterModeUpdateAfterDisallowedUserEvent",
+    this.measureCurrentLinePosition(
+      "CurrentLineUpdateAfterDisallowedUserEvent",
       (measure, view) => {
         if (!measure) {
           return;
         }
         this.handleCursorStateUpdate(view);
-
-        const { activeLineOffset, lineHeight, lineOffset } = measure;
-        if (
-          this.tm.settings.currentLine.isHighlightCurrentLineEnabled ||
-          this.tm.settings.currentLine.isFadeLinesEnabled
-        ) {
-          this.moveCurrentLine(view, activeLineOffset, lineOffset, lineHeight);
-        }
+        this.moveCurrentLineIfEnabled(view, measure);
       }
     );
   }
 
-  private updateNonUserEvent() {
-    console.debug("updateNonUserEvent");
+  private onEditorInteraction() {
+    this.revealCurrentLineAfterInteraction();
+  }
 
-    this.applyDecorations();
-
+  private revealCurrentLineAfterInteraction() {
     if (!this.isInitialInteraction) {
       return;
     }
-
-    if (this.tm.settings.general.isOnlyActivateAfterFirstInteractionEnabled) {
-      const editorDom = getEditorDom(this.view);
-      if (editorDom) {
-        editorDom.classList.add("ptm-first-open");
-      }
-    }
-  }
-
-  private moveByCommand(command: TypewriterMoveCommand) {
-    const editorInfo = this.getEditorInfo();
-    if (!editorInfo?.editor || this.isDisabled()) {
-      return;
-    }
-
-    const editor = editorInfo?.editor as { exec?: (command: string) => void };
-    editor.exec?.(command);
-
-    const editorDom = getEditorDom(this.view);
-    if (editorDom) {
-      editorDom.classList.remove("ptm-select");
-    }
-    this.updateAllowedUserEvent();
+    this.isInitialInteraction = false;
+    getEditorDom(this.view)?.classList.remove("ptm-first-open");
   }
 
   private onResize() {
     this.scheduleTableOverlayCheck();
     if (this.isDisabled()) {
-      this.clearDecorations();
       this.destroyCurrentLine();
-      this.resetPadding(this.view);
       return;
     }
     this.updateAfterExternalEvent();
   }
 
   private onScroll() {
-    this.isScrolling = true;
-    this.scheduleScrollEnd();
     this.scheduleTableOverlayCheck(2);
-    this.measureTypewriterPosition(
-      "TypewriterModeOnScroll",
-      (measure, view) => {
-        // This is placed here to debounce DOM manipulation
-        if (this.isScrolling && !this.isOnScrollClassSet) {
-          const editorDom = getEditorDom(this.view);
-          if (editorDom) {
-            editorDom.classList.add("ptm-scroll");
-            this.isOnScrollClassSet = true;
-          }
-        }
-
-        if (!measure) {
-          return;
-        }
-        const { activeLineOffset, lineOffset, lineHeight } = measure;
-        this.moveCurrentLine(view, activeLineOffset, lineOffset, lineHeight);
+    this.measureCurrentLinePosition("CurrentLineOnScroll", (measure, view) => {
+      if (!measure) {
+        return;
       }
-    );
-  }
-
-  private applyDecorations() {
-    if (
-      !this.tm.settings.dimming.isDimUnfocusedEnabled ||
-      this.tm.settings.dimming.dimUnfocusedMode !== "sentences"
-    ) {
-      this.clearDecorations();
-      return;
-    }
-
-    this.decorations = getActiveSentenceDecos(this.view, {
-      sentenceDelimiters: ".!?",
-      extraCharacters: "*”’",
-      ignoredPatterns: "Mr.",
+      this.moveCurrentLineIfEnabled(view, measure);
     });
-  }
-
-  private clearDecorations() {
-    this.decorations = RangeSet.empty;
   }
 
   private updateAfterExternalEvent() {
@@ -958,27 +669,21 @@ class TypewriterModeCM6Plugin {
     this.scheduleTableOverlayCheck(8);
 
     this.loadPerWindowProps();
-    this.applyDecorations();
 
     if (this.isTableCell()) {
       this.destroyCurrentLine();
       return;
     }
 
-    const isMeasureScheduled = this.measureTypewriterPosition(
-      "TypewriterModeUpdateAfterExternalEvent",
+    const isMeasureScheduled = this.measureCurrentLinePosition(
+      "CurrentLineUpdateAfterExternalEvent",
       (measure, view) => {
         this.setupScrollListener();
 
         if (!measure) {
           return;
         }
-
-        if (this.tm.settings.typewriter.isTypewriterScrollEnabled) {
-          this.setPadding(view, measure.typewriterOffset);
-        }
-
-        this.recenterAndMoveCurrentLine(view, measure);
+        this.moveCurrentLineIfEnabled(view, measure);
       }
     );
     if (!(isMeasureScheduled || this.isDestroyed)) {
@@ -988,11 +693,10 @@ class TypewriterModeCM6Plugin {
 
   private moveCurrentLine(
     view: EditorView,
-    offset: number,
     lineOffset: number,
     lineHeight: number
   ) {
-    console.debug("moveCurrentLine", offset, lineOffset, lineHeight);
+    console.debug("moveCurrentLine", lineOffset, lineHeight);
 
     // Obsidian renders a Live Preview Markdown table as one oversized
     // CodeMirror line. Never paint that widget as a normal current line.
@@ -1001,90 +705,42 @@ class TypewriterModeCM6Plugin {
       return;
     }
 
-    const result = this.loadCurrentLine(view);
-    if (!result) {
+    const caretCoords = view.coordsAtPos(view.state.selection.main.head);
+    if (!caretCoords) {
+      this.destroyCurrentLine(view);
+      return;
+    }
+
+    const currentLine = this.loadCurrentLine(view);
+    if (!currentLine) {
       return;
     }
 
     const scrollDom = getScrollDom(view);
     const editorDom = getEditorDom(view);
+    const editorRect = editorDom.getBoundingClientRect();
+    const activeLineOffset = caretCoords.top - editorRect.top;
     const scrollContentOffset = scrollDom
       ? scrollDom.scrollTop +
-        (editorDom.getBoundingClientRect().top -
-          scrollDom.getBoundingClientRect().top)
+        (editorRect.top - scrollDom.getBoundingClientRect().top)
       : 0;
 
-    result.currentLine.style.height = `${lineHeight}px`;
-    result.currentLine.style.top = `${offset - lineOffset + scrollContentOffset}px`;
+    currentLine.style.height = `${lineHeight}px`;
+    currentLine.style.top = `${activeLineOffset - lineOffset + scrollContentOffset}px`;
 
     if (this.removeCurrentLineIfOverTable(view)) {
       return;
     }
-
-    // this is a workaround, because fadeBefore.style.bottom does not work somehow...
-    if (result.fadeBefore) {
-      result.fadeBefore.style.top = `calc(${offset - lineOffset}px - 100vh)`;
-    }
-    if (result.fadeAfter) {
-      result.fadeAfter.style.top = `${offset - lineOffset + lineHeight}px`;
-    }
   }
 
-  private setPadding(view: EditorView, offset: number) {
-    console.debug("setPadding", offset);
-
-    const sizerDom = getSizerDom(view);
-    if (!sizerDom) {
-      return;
-    }
-
-    sizerDom.style.padding = this.tm.settings.typewriter
-      .isOnlyMaintainTypewriterOffsetWhenReachedEnabled
-      ? `0 0 ${offset}px 0`
-      : `${offset}px 0`;
-  }
-
-  private resetPadding(view: EditorView) {
-    if (!this.isMarkdownFile()) {
-      return;
-    }
-    const sizerDom = getSizerDom(view);
-    if (!sizerDom) {
-      return;
-    }
-    sizerDom.style.removeProperty("padding");
-  }
-
-  private recenter(view: EditorView, offset: number) {
-    console.debug("recenter", offset);
-
-    const head = view.state.selection.main.head;
-    const effect = EditorView.scrollIntoView(head, {
-      y: "start",
-      yMargin: offset,
-    });
-    const transaction = view.state.update({ effects: effect });
-    view.dispatch(transaction);
-  }
-
-  private recenterAndMoveCurrentLine(
+  private moveCurrentLineIfEnabled(
     view: EditorView,
-    { scrollOffset, lineOffset, lineHeight }: TypewriterPositionData
+    measure: CurrentLinePositionData
   ) {
-    const isTypewriterScrollEnabled =
-      this.tm.settings.typewriter.isTypewriterScrollEnabled;
-    const isKeepLinesAboveAndBelowEnabled =
-      this.tm.settings.keepLinesAboveAndBelow.isKeepLinesAboveAndBelowEnabled;
-    const isHighlightCurrentLineEnabled =
-      this.tm.settings.currentLine.isHighlightCurrentLineEnabled;
-    const isFadeLinesEnabled = this.tm.settings.currentLine.isFadeLinesEnabled;
-
-    if (isTypewriterScrollEnabled || isKeepLinesAboveAndBelowEnabled) {
-      this.recenter(view, scrollOffset);
+    if (!this.tm.settings.currentLine.isHighlightCurrentLineEnabled) {
+      return;
     }
-    if (isHighlightCurrentLineEnabled || isFadeLinesEnabled) {
-      this.moveCurrentLine(view, scrollOffset, lineOffset, lineHeight);
-    }
+    this.moveCurrentLine(view, measure.lineOffset, measure.lineHeight);
   }
 
   private handleCursorStateUpdate(view: EditorView) {
@@ -1173,7 +829,6 @@ class TypewriterModeCM6Plugin {
 
 export default function createTypewriterModeViewPlugin(tm: TypewriterModeLib) {
   return ViewPlugin.define(
-    (view: EditorView) => new TypewriterModeCM6Plugin(tm, view),
-    { decorations: (v) => v.decorations }
+    (view: EditorView) => new TypewriterModeCM6Plugin(tm, view)
   );
 }

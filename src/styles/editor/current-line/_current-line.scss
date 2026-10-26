@@ -17,17 +17,3 @@
   }
 }
 
-body.ptm-highlight-current-line-only-in-active-editor {
-  .cm-editor:not(.ptm-editor-disabled, .cm-focused) {
-    .ptm-current-line {
-      display: none;
-    }
-  }
-}
-
-body.ptm-highlight-current-line-only-in-writing-focus-mode:not(.ptm-focus-mode) {
-  .ptm-current-line {
-    display: none;
-  }
-}
-

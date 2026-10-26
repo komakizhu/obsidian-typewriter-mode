@@ -272,25 +272,56 @@ export function getMarkdownBlockAtLine(
   line: number
 ): MarkdownBlockSpan | null {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+  const firstContentLine = frontmatterEnd(lines);
   if (
     !Number.isInteger(line) ||
     line < 0 ||
     line >= lines.length ||
-    line < frontmatterEnd(lines) ||
-    !lines[line].trim() ||
-    EMBED.test(lines[line])
+    line < firstContentLine
   ) {
     return null;
   }
 
-  return (
-    getFenceSpan(lines, line) ??
-    getBlockquoteSpan(lines, line) ??
-    getTableSpan(lines, line) ??
-    getListSpan(lines, line) ??
-    getHeadingSpan(lines, line) ??
-    getParagraphSpan(lines, line)
-  );
+  const getBlockAtNonBlankLine = (candidateLine: number) => {
+    if (!lines[candidateLine].trim() || EMBED.test(lines[candidateLine])) {
+      return null;
+    }
+    return (
+      getFenceSpan(lines, candidateLine) ??
+      getBlockquoteSpan(lines, candidateLine) ??
+      getTableSpan(lines, candidateLine) ??
+      getListSpan(lines, candidateLine) ??
+      getHeadingSpan(lines, candidateLine) ??
+      getParagraphSpan(lines, candidateLine)
+    );
+  };
+
+  if (lines[line].trim()) {
+    return getBlockAtNonBlankLine(line);
+  }
+
+  // Blank source lines do not produce a rendered element. Use the nearest
+  // content block so a cursor on a separator line can still be highlighted
+  // in reading mode. Prefer the previous block when both are equally close.
+  for (let distance = 1; distance < lines.length; distance += 1) {
+    const previousLine = line - distance;
+    if (previousLine >= firstContentLine) {
+      const previousBlock = getBlockAtNonBlankLine(previousLine);
+      if (previousBlock) {
+        return previousBlock;
+      }
+    }
+
+    const nextLine = line + distance;
+    if (nextLine < lines.length) {
+      const nextBlock = getBlockAtNonBlankLine(nextLine);
+      if (nextBlock) {
+        return nextBlock;
+      }
+    }
+  }
+
+  return null;
 }
 
 export function sectionMatchesBlock(

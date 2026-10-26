@@ -1,54 +1,19 @@
 import { describe, expect, test } from "bun:test";
-import {
-  dispatchEditorCommand,
-  registerEditorCommandTarget,
-  unregisterEditorCommandTarget,
-} from "@/cm6/editor-command-registry";
-import { getEditorFilePath, isTargetEditor } from "@/cm6/editor-identity";
+import { getEditorFilePath } from "@/cm6/editor-identity";
 import { normalizeSelectionRange } from "@/cm6/selection-utils";
 import { isMarkdownTableBlock } from "@/cm6/table-detection";
 import { inspectTransactionState } from "@/cm6/transaction-state";
 
 describe("editor identity", () => {
   test("reads the file from the editor-owned info", () => {
-    const editor = {};
-    const info = { file: { path: "notes/a.md" }, editor };
+    const info = { file: { path: "notes/a.md" } };
 
     expect(getEditorFilePath(info)).toBe("notes/a.md");
-    expect(isTargetEditor(info, editor)).toBe(true);
-    expect(isTargetEditor(info, {})).toBe(false);
   });
 
   test("does not invent a file when the editor has no file", () => {
     expect(getEditorFilePath(undefined)).toBeNull();
     expect(getEditorFilePath({ file: null })).toBeNull();
-  });
-});
-
-describe("editor command routing", () => {
-  test("dispatches only to the registered editor instance", () => {
-    const editorA = {};
-    const editorB = {};
-    const commandsA: string[] = [];
-    const commandsB: string[] = [];
-    const targetA = {
-      moveByCommand: (command: "goUp" | "goDown") => commandsA.push(command),
-    };
-    const targetB = {
-      moveByCommand: (command: "goUp" | "goDown") => commandsB.push(command),
-    };
-
-    registerEditorCommandTarget(editorA, targetA);
-    registerEditorCommandTarget(editorB, targetB);
-    dispatchEditorCommand(editorA, "goUp");
-
-    expect(commandsA).toEqual(["goUp"]);
-    expect(commandsB).toEqual([]);
-
-    unregisterEditorCommandTarget(editorA, targetA);
-    dispatchEditorCommand(editorA, "goDown");
-    expect(commandsA).toEqual(["goUp"]);
-    unregisterEditorCommandTarget(editorB, targetB);
   });
 });
 

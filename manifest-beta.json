@@ -3,7 +3,7 @@
   "name": "Typewriter Mode",
   "author": "Davis Riedel",
   "authorUrl": "https://davis-riedel.de/en/software",
-  "description": "Typewriter scroll, highlight current line, dim unfocused paragraphs and sentences, writing focus, restore cursor position and more.",
+  "description": "Current-line highlighting and optional cursor restoration.",
   "isDesktopOnly": false,
   "minAppVersion": "1.11.0",
   "version": "1.6.1",

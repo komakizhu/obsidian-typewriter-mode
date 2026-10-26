@@ -1,71 +1,25 @@
-@mixin ptm-current-line-highlight-theme-style($theme, $style) {
+@mixin ptm-current-line-highlight-theme-style($color, $blend-mode) {
   &.ptm-highlight-current-line {
     .ptm-current-line {
-      @if $theme == "light" {
-        mix-blend-mode: multiply;
-      } @else if $theme == "dark" {
-        mix-blend-mode: screen;
-      }
-
-      @if $style == "box" {
-        background-color: var(--current-line-highlight-color-#{$theme});
-      } @else if $style == "underline" {
-        border-bottom: var(--current-line-highlight-underline-thickness) solid var(--current-line-highlight-color-#{$theme});
-      }
+      background-color: $color;
+      mix-blend-mode: $blend-mode;
     }
   }
 
   &.ptm-plugin-activated.ptm-highlight-current-line.ptm-highlight-last-block-in-reading-mode {
     .markdown-preview-view .ptm-reading-highlight-overlay {
-      @if $theme == "light" {
-        mix-blend-mode: multiply;
-      } @else if $theme == "dark" {
-        mix-blend-mode: screen;
-      }
-
-      @if $style == "box" {
-        background-color: var(--current-line-highlight-color-#{$theme});
-      } @else if $style == "underline" {
-        box-shadow: inset 0 calc(-1 * var(--current-line-highlight-underline-thickness)) 0 var(--current-line-highlight-color-#{$theme});
-      }
+      background-color: $color;
+      mix-blend-mode: $blend-mode;
     }
   }
 }
 
 body.theme-light {
-  &.ptm-current-line-highlight-box {
-    @include ptm-current-line-highlight-theme-style("light", "box");
-  }
-
-  &.ptm-current-line-highlight-underline {
-    @include ptm-current-line-highlight-theme-style("light", "underline");
-  }
+  @include ptm-current-line-highlight-theme-style(#dddddd, multiply);
 }
 
 body.theme-dark {
-  &.ptm-current-line-highlight-box {
-    @include ptm-current-line-highlight-theme-style("dark", "box");
-  }
-
-  &.ptm-current-line-highlight-underline {
-    @include ptm-current-line-highlight-theme-style("dark", "underline");
-  }
-}
-
-body.ptm-current-line-pause-while-scrolling {
-  .cm-editor:not(.ptm-editor-disabled).ptm-scroll {
-    .ptm-current-line {
-      opacity: 0;
-    }
-  }
-}
-
-body.ptm-current-line-pause-while-selecting {
-  .cm-editor:not(.ptm-editor-disabled).ptm-select {
-    .ptm-current-line {
-      opacity: 0;
-    }
-  }
+  @include ptm-current-line-highlight-theme-style(#444444, screen);
 }
 
 .markdown-preview-view:has(> .ptm-reading-highlight-overlay) {

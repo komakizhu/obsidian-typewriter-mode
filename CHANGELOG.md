@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.1
+
+- Fix reading-mode highlighting after delayed and repeated renders, and extend the highlight across the preview width.
+
 ## 1.6.0
 
 - Add reading-mode highlighting for the last edited Markdown block.

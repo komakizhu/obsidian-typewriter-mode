@@ -14,6 +14,22 @@
       }
     }
   }
+
+  &.ptm-plugin-activated.ptm-highlight-current-line.ptm-highlight-last-block-in-reading-mode {
+    .markdown-preview-view .ptm-reading-current-block {
+      @if $theme == "light" {
+        mix-blend-mode: multiply;
+      } @else if $theme == "dark" {
+        mix-blend-mode: screen;
+      }
+
+      @if $style == "box" {
+        background-color: var(--current-line-highlight-color-#{$theme});
+      } @else if $style == "underline" {
+        box-shadow: inset 0 calc(-1 * var(--current-line-highlight-underline-thickness)) 0 var(--current-line-highlight-color-#{$theme});
+      }
+    }
+  }
 }
 
 body.theme-light {

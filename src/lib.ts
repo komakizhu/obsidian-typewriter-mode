@@ -2,6 +2,7 @@ import type { Extension } from "@codemirror/state";
 import type { Plugin } from "obsidian";
 import type { PerWindowProps } from "@/cm6/per-window-props";
 import createTypewriterModeViewPlugin from "@/cm6/plugin";
+import ReadingModeHighlight from "@/cm6/reading-mode-highlight";
 import TypewriterModeSettingTab from "@/components/settings-tab";
 import type { AbstractCommand } from "./capabilities/base/abstract-command";
 import type { Feature } from "./capabilities/base/feature";
@@ -32,6 +33,7 @@ export default class TypewriterModeLib {
   };
 
   private readonly editorExtensions: Extension[];
+  readonly readingModeHighlight: ReadingModeHighlight;
 
   readonly features: Record<string, Record<string, Feature>>;
   readonly commands: Record<string, AbstractCommand>;
@@ -44,12 +46,17 @@ export default class TypewriterModeLib {
     this.plugin = plugin;
     this.loadData = loadData;
     this.saveData = saveData;
+    this.readingModeHighlight = new ReadingModeHighlight(this);
 
     // Features must be loaded first!
     this.features = getFeatures(this);
     this.commands = getCommands(this);
 
-    this.editorExtensions = [createTypewriterModeViewPlugin(this), []];
+    this.editorExtensions = [
+      createTypewriterModeViewPlugin(this),
+      this.readingModeHighlight.createEditorExtension(),
+      [],
+    ];
   }
 
   async load() {
@@ -85,6 +92,7 @@ export default class TypewriterModeLib {
   }
 
   loadEditorExtension() {
+    this.readingModeHighlight.load();
     this.plugin.registerEditorExtension(this.editorExtensions);
   }
 
@@ -95,6 +103,7 @@ export default class TypewriterModeLib {
   }
 
   unload() {
+    this.readingModeHighlight.unload();
     for (const category of Object.values(this.features)) {
       for (const feature of Object.values(category)) {
         feature.disable();

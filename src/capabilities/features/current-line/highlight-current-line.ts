@@ -5,4 +5,14 @@ export default class HighlightCurrentLine extends FeatureToggle {
   protected override toggleClass = "ptm-highlight-current-line";
   protected settingTitle = "高亮当前行";
   protected settingDesc = "高亮光标所在的当前行";
+
+  override enable() {
+    super.enable();
+    this.tm.readingModeHighlight.refresh();
+  }
+
+  override disable() {
+    super.disable();
+    this.tm.readingModeHighlight.clearHighlights();
+  }
 }

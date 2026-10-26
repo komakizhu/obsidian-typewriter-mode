@@ -9,6 +9,7 @@ import FadeLinesOnlyInWritingFocusMode from "./fade-lines-only-in-writing-focus-
 import HighlightCurrentLine from "./highlight-current-line";
 import HighlightCurrentLineOnlyInFocusedEditor from "./highlight-current-line-only-in-focused-editor";
 import HighlightCurrentLineOnlyInWritingFocusMode from "./highlight-current-line-only-in-writing-focus-mode";
+import HighlightLastBlockInReadingMode from "./highlight-last-block-in-reading-mode";
 import PauseCurrentLineHighlightWhileScrolling from "./pause-current-line-highlight-while-scrolling";
 import PauseCurrentLineHighlightWhileSelecting from "./pause-current-line-highlight-while-selecting";
 
@@ -16,6 +17,7 @@ export default function getCurrentLineFeatures(tm: TypewriterModeLib) {
   return Object.fromEntries(
     [
       new HighlightCurrentLine(tm),
+      new HighlightLastBlockInReadingMode(tm),
       new HighlightCurrentLineOnlyInWritingFocusMode(tm),
       new FadeLines(tm),
       new FadeLinesIntensity(tm),

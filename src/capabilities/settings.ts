@@ -62,6 +62,7 @@ export interface CurrentLineSettings {
   isHighlightCurrentLineEnabled: boolean;
   isHighlightCurrentLineOnlyInFocusedEditorEnabled: boolean;
   isHighlightCurrentLineOnlyInWritingFocusModeEnabled: boolean;
+  isHighlightLastBlockInReadingModeEnabled: boolean;
   isPauseCurrentLineHighlightWhileScrollingEnabled: boolean;
   isPauseCurrentLineHighlightWhileSelectingEnabled: boolean;
 }
@@ -179,6 +180,7 @@ export const DEFAULT_SETTINGS: TypewriterModeSettings = {
     isFadeLinesOnlyInWritingFocusModeEnabled: false,
     fadeLinesIntensity: 0.5,
     isHighlightCurrentLineOnlyInFocusedEditorEnabled: false,
+    isHighlightLastBlockInReadingModeEnabled: false,
     isPauseCurrentLineHighlightWhileScrollingEnabled: false,
     isPauseCurrentLineHighlightWhileSelectingEnabled: false,
     currentLineHighlightStyle: CURRENT_LINE_HIGHLIGHT_STYLE.BOX,
@@ -330,6 +332,8 @@ function migrateSettings(
       isHighlightCurrentLineEnabled:
         legacy.isHighlightCurrentLineEnabled ??
         DEFAULT_SETTINGS.currentLine.isHighlightCurrentLineEnabled,
+      isHighlightLastBlockInReadingModeEnabled:
+        DEFAULT_SETTINGS.currentLine.isHighlightLastBlockInReadingModeEnabled,
       isHighlightCurrentLineOnlyInWritingFocusModeEnabled:
         DEFAULT_SETTINGS.currentLine
           .isHighlightCurrentLineOnlyInWritingFocusModeEnabled,

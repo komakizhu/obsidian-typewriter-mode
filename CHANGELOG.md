@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.0
+
+- Refocus the plugin on current-line highlighting, reading-mode highlighting, and cursor position restoration.
+- Remove typewriter scrolling, writing-focus modes, dimming, and highlight styling controls.
+- Fix current-line highlight positioning in the editor and reading mode.
+
 ## 1.6.1
 
 - Fix reading-mode highlighting after delayed and repeated renders, and extend the highlight across the preview width.

@@ -6,7 +6,7 @@
   "description": "Current-line highlighting and optional cursor restoration.",
   "isDesktopOnly": false,
   "minAppVersion": "1.11.0",
-  "version": "1.6.1",
+  "version": "2.0.0",
   "fundingUrl": {
     "Buy Me a Coffee": "https://www.buymeacoffee.com/davis.riedel",
     "GitHub Sponsors": "https://github.com/sponsors/davisriedel"

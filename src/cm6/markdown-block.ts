@@ -217,29 +217,16 @@ function getBlockquoteSpan(
   let startLine = line;
   let endLine = line + 1;
   while (startLine > 0) {
-    if (QUOTE_LINE.test(lines[startLine - 1])) {
-      startLine -= 1;
-    } else if (
-      !lines[startLine - 1].trim() &&
-      startLine > 1 &&
-      QUOTE_LINE.test(lines[startLine - 2])
-    ) {
-      startLine -= 2;
-    } else {
+    if (!QUOTE_LINE.test(lines[startLine - 1])) {
       break;
     }
+    startLine -= 1;
   }
   while (endLine < lines.length) {
-    if (QUOTE_LINE.test(lines[endLine])) {
-      endLine += 1;
-    } else if (
-      !lines[endLine].trim() &&
-      QUOTE_LINE.test(lines[endLine + 1] ?? "")
-    ) {
-      endLine += 2;
-    } else {
+    if (!QUOTE_LINE.test(lines[endLine])) {
       break;
     }
+    endLine += 1;
   }
   return { kind: "blockquote", startLine, endLine };
 }
@@ -315,5 +302,28 @@ export function sectionMatchesBlock(
   }
   return (
     section.lineEnd === block.endLine || section.lineEnd === block.endLine - 1
+  );
+}
+
+export function sourceBlockMatches(
+  renderedSource: string,
+  currentSource: string,
+  block: MarkdownBlockSpan | null
+): boolean {
+  if (!block) {
+    return false;
+  }
+  const renderedLines = renderedSource.replace(/\r\n?/g, "\n").split("\n");
+  const currentLines = currentSource.replace(/\r\n?/g, "\n").split("\n");
+  if (
+    block.startLine < 0 ||
+    block.endLine > renderedLines.length ||
+    block.endLine > currentLines.length
+  ) {
+    return false;
+  }
+  return (
+    renderedLines.slice(block.startLine, block.endLine).join("\n") ===
+    currentLines.slice(block.startLine, block.endLine).join("\n")
   );
 }

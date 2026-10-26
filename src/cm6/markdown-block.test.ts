@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { getMarkdownBlockAtLine, sectionMatchesBlock } from "./markdown-block";
+import {
+  getMarkdownBlockAtLine,
+  sectionMatchesBlock,
+  sourceBlockMatches,
+} from "./markdown-block";
 
 describe("reading-mode markdown block mapping", () => {
   test("uses the source line to distinguish repeated paragraphs", () => {
@@ -44,6 +48,20 @@ describe("reading-mode markdown block mapping", () => {
     });
   });
 
+  test("keeps quote blocks separated by an unquoted blank line distinct", () => {
+    const source = "> previous quote\n\n> [!note] current quote\n> content";
+    expect(getMarkdownBlockAtLine(source, 0)).toEqual({
+      kind: "blockquote",
+      startLine: 0,
+      endLine: 1,
+    });
+    expect(getMarkdownBlockAtLine(source, 3)).toEqual({
+      kind: "blockquote",
+      startLine: 2,
+      endLine: 4,
+    });
+  });
+
   test("groups all rows of a table", () => {
     expect(
       getMarkdownBlockAtLine("| A | B |\n| --- | --- |\n| 1 | 2 |", 2)
@@ -79,5 +97,22 @@ describe("reading-mode markdown block mapping", () => {
     expect(sectionMatchesBlock({ lineStart: 0, lineEnd: 20 }, block)).toBe(
       false
     );
+  });
+
+  test("allows unrelated source changes when the target block is unchanged", () => {
+    const renderedSource = "old outside text\n\n> quote\n> second line";
+    const currentSource = "new outside text\n\n> quote\n> second line";
+    const block = getMarkdownBlockAtLine(currentSource, 2);
+    expect(sourceBlockMatches(renderedSource, currentSource, block)).toBe(true);
+  });
+
+  test("rejects a rendered target block whose source text is stale", () => {
+    const renderedSource = "outside\n\n> old target\n> second line";
+    const currentSource = "outside\n\n> new target\n> second line";
+    const block = getMarkdownBlockAtLine(currentSource, 2);
+    expect(sourceBlockMatches(renderedSource, currentSource, block)).toBe(
+      false
+    );
+    expect(sourceBlockMatches(renderedSource, currentSource, null)).toBe(false);
   });
 });

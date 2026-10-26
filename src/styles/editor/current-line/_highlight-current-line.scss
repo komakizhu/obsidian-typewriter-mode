@@ -16,7 +16,7 @@
   }
 
   &.ptm-plugin-activated.ptm-highlight-current-line.ptm-highlight-last-block-in-reading-mode {
-    .markdown-preview-view .ptm-reading-current-block {
+    .markdown-preview-view .ptm-reading-highlight-overlay {
       @if $theme == "light" {
         mix-blend-mode: multiply;
       } @else if $theme == "dark" {
@@ -66,4 +66,16 @@ body.ptm-current-line-pause-while-selecting {
       opacity: 0;
     }
   }
+}
+
+.markdown-preview-view:has(> .ptm-reading-highlight-overlay) {
+  position: relative;
+}
+
+.ptm-reading-highlight-overlay {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  z-index: 1;
 }

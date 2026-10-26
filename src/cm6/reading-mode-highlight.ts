@@ -4,6 +4,7 @@ import {
   type MarkdownPostProcessorContext,
   type MarkdownView,
   Platform,
+  TFile,
   type WorkspaceLeaf,
 } from "obsidian";
 import type TypewriterModeLib from "@/lib";
@@ -12,16 +13,18 @@ import {
   type MarkdownBlockKind,
   type MarkdownSectionRange,
   sectionMatchesBlock,
+  sourceBlockMatches,
 } from "./markdown-block";
 
 const highlightClass = "ptm-reading-current-block";
 const blockSelectors = {
-  blockquote: ".el-blockquote",
-  code: ".el-pre",
-  heading: ".el-h1, .el-h2, .el-h3, .el-h4, .el-h5, .el-h6",
-  list: ".el-ul, .el-ol",
-  paragraph: ".el-p",
-  table: ".el-table",
+  blockquote: ".el-blockquote, blockquote, .callout",
+  code: ".el-pre, pre",
+  heading:
+    ".el-h1, .el-h2, .el-h3, .el-h4, .el-h5, .el-h6, h1, h2, h3, h4, h5, h6",
+  list: ".el-ul, .el-ol, ul, ol",
+  paragraph: ".el-p, p",
+  table: ".el-table, table",
 } as const;
 
 interface ReadingPosition {
@@ -53,11 +56,17 @@ export default class ReadingModeHighlight {
     WorkspaceLeaf,
     MutationObserver
   >();
+  private readonly elementSnapshots = new WeakMap<
+    HTMLElement,
+    SourceSnapshot
+  >();
   private readonly sourceSnapshots = new Map<string, SourceSnapshot>();
   private readonly sourceSnapshotTokensByFile = new Map<
     string,
     Array<{ token: string; source: string }>
   >();
+  private readonly overlays = new Map<WorkspaceLeaf, HTMLElement>();
+  private readonly leafCleanups = new Map<WorkspaceLeaf, () => void>();
   private sourceSnapshotSequence = 0;
   private unloaded = false;
 
@@ -90,7 +99,10 @@ export default class ReadingModeHighlight {
   }
 
   load() {
-    this.tm.plugin.registerMarkdownPostProcessor(this.processMarkdown);
+    this.tm.plugin.registerMarkdownPostProcessor(
+      this.processMarkdown,
+      Number.MAX_SAFE_INTEGER
+    );
     this.tm.plugin.registerEvent(
       this.tm.plugin.app.workspace.on("layout-change", this.onLayoutChange)
     );
@@ -123,6 +135,14 @@ export default class ReadingModeHighlight {
       }
     }
     this.highlights.clear();
+    for (const overlay of this.overlays.values()) {
+      overlay.remove();
+    }
+    this.overlays.clear();
+    for (const cleanup of this.leafCleanups.values()) {
+      cleanup();
+    }
+    this.leafCleanups.clear();
     for (const observer of this.mutationObservers.values()) {
       observer.disconnect();
     }
@@ -160,8 +180,10 @@ export default class ReadingModeHighlight {
   }
 
   private asMarkdownView(leaf: WorkspaceLeaf): MarkdownView | null {
-    return leaf.view.getViewType() === "markdown"
-      ? (leaf.view as MarkdownView)
+    const view = leaf.view as MarkdownView;
+    return leaf.view.getViewType() === "markdown" &&
+      typeof view.getMode === "function"
+      ? view
       : null;
   }
 
@@ -312,41 +334,28 @@ export default class ReadingModeHighlight {
     );
   }
 
-  private processMarkdown(
+  private async processMarkdown(
     element: HTMLElement,
     context: MarkdownPostProcessorContext
   ) {
     if (this.unloaded || element.closest(".markdown-embed")) {
       return;
     }
+    // Obsidian also runs post processors before a section is attached to a leaf.
+    // Record its provenance now; the leaf observer applies it after attachment.
+    const filePath = context.sourcePath;
+    const file = this.tm.plugin.app.vault.getAbstractFileByPath(filePath);
+    if (!(file instanceof TFile)) {
+      return;
+    }
     const leaf = this.getLeaf(element);
-    if (!leaf) {
-      return;
-    }
-    const view = this.asMarkdownView(leaf);
-    const filePath = view?.file?.path;
-    if (
-      view?.getMode() !== "preview" ||
-      !filePath ||
-      context.sourcePath !== filePath
-    ) {
-      return;
-    }
-    if (this.isReadingFeatureEnabled()) {
-      this.ensureLeafObserver(leaf);
-    }
-
-    const currentSource = view.editor.getValue();
-    const position = this.positions.get(leaf);
-    if (position && currentSource !== position.source) {
-      if (position) {
-        this.positions.delete(leaf);
-      }
-      this.clearLeafHighlights(leaf);
-    }
-
-    const sourceToken = this.getSourceSnapshotToken(filePath, currentSource);
+    const view = leaf ? this.asMarkdownView(leaf) : null;
     const renderedCandidates = new Set<HTMLElement>();
+    const sections: Array<{
+      candidate: HTMLElement;
+      kind: MarkdownBlockKind;
+      range: MarkdownSectionRange;
+    }> = [];
     for (const [kind, selector] of Object.entries(blockSelectors) as [
       MarkdownBlockKind,
       string,
@@ -362,14 +371,36 @@ export default class ReadingModeHighlight {
         renderedCandidates.add(candidate);
         const range = context.getSectionInfo(candidate);
         if (range) {
-          candidate.setAttribute(renderedBlockAttribute, sourceToken);
-          candidate.dataset.ptmReadingBlockKind = kind;
-          candidate.dataset.ptmReadingBlockStart = String(range.lineStart);
-          candidate.dataset.ptmReadingBlockEnd = String(range.lineEnd);
+          sections.push({ candidate, kind, range });
         }
       }
     }
-    this.applyHighlightForLeaf(leaf, [...renderedCandidates]);
+    // Capture section info synchronously: its context can expire after rendering.
+    const currentSource =
+      view?.file?.path === filePath
+        ? view.editor.getValue()
+        : await this.tm.plugin.app.vault.cachedRead(file);
+    if (this.unloaded) {
+      return;
+    }
+    const sourceToken = this.getSourceSnapshotToken(filePath, currentSource);
+    const sourceSnapshot = this.sourceSnapshots.get(sourceToken);
+    if (!sourceSnapshot) {
+      return;
+    }
+    for (const { candidate, kind, range } of sections) {
+      this.elementSnapshots.set(candidate, sourceSnapshot);
+      candidate.setAttribute(renderedBlockAttribute, sourceToken);
+      candidate.dataset.ptmReadingBlockKind = kind;
+      candidate.dataset.ptmReadingBlockStart = String(range.lineStart);
+      candidate.dataset.ptmReadingBlockEnd = String(range.lineEnd);
+    }
+    if (leaf) {
+      if (this.isReadingFeatureEnabled()) {
+        this.ensureLeafObserver(leaf);
+      }
+      this.applyHighlightForLeaf(leaf, [...renderedCandidates]);
+    }
   }
 
   private applyHighlightForLeaf(
@@ -422,13 +453,27 @@ export default class ReadingModeHighlight {
       .filter(
         (
           entry
-        ): entry is { candidate: HTMLElement; section: RenderedBlockSection } =>
-          entry.section !== null &&
-          entry.section.filePath === filePath &&
-          entry.section.kind === block.kind &&
-          this.sourceSnapshots.get(entry.section.sourceToken)?.source ===
-            currentSource &&
-          sectionMatchesBlock(entry.section.range, block)
+        ): entry is {
+          candidate: HTMLElement;
+          section: RenderedBlockSection;
+        } => {
+          if (
+            entry.candidate.closest(".markdown-embed, .markdown-source-view") ||
+            !entry.section ||
+            entry.section.filePath !== filePath ||
+            entry.section.kind !== block.kind ||
+            !sectionMatchesBlock(entry.section.range, block)
+          ) {
+            return false;
+          }
+          const snapshot =
+            this.elementSnapshots.get(entry.candidate) ??
+            this.sourceSnapshots.get(entry.section.sourceToken);
+          return (
+            snapshot !== undefined &&
+            sourceBlockMatches(snapshot.source, currentSource, block)
+          );
+        }
       );
     const matching = matchingCandidates.filter(
       ({ candidate }) =>
@@ -443,9 +488,12 @@ export default class ReadingModeHighlight {
     }
 
     const target = matching[0].candidate;
-    this.clearLeafHighlights(leaf);
-    target.classList.add(highlightClass);
-    this.highlights.set(leaf, new Set([target]));
+    if (!this.highlights.get(leaf)?.has(target)) {
+      this.clearLeafHighlights(leaf);
+      target.classList.add(highlightClass);
+      this.highlights.set(leaf, new Set([target]));
+    }
+    this.updateOverlay(leaf, target);
   }
 
   private isReadingFeatureEnabled(): boolean {
@@ -462,28 +510,53 @@ export default class ReadingModeHighlight {
       return;
     }
     const container = this.getLeafContainer(leaf);
+    const ownerWindow = container.ownerDocument.defaultView;
+    if (!ownerWindow) {
+      return;
+    }
+    let frame = 0;
+    const schedule = () => {
+      if (frame || this.unloaded) {
+        return;
+      }
+      frame = ownerWindow.requestAnimationFrame(() => {
+        frame = 0;
+        this.applyHighlightForLeaf(leaf);
+      });
+    };
     const observer = new MutationObserver((records) => {
       if (!this.isReadingFeatureEnabled()) {
         return;
       }
       const relevantChange = records.some((record) => {
         if (record.type === "attributes") {
-          return record.attributeName === renderedBlockAttribute;
+          return true;
         }
-        return [...record.addedNodes].some((node) => {
-          if (node.nodeType !== Node.ELEMENT_NODE) {
-            return false;
-          }
-          const element = node as HTMLElement;
-          return (
-            element.matches(renderedBlockSelector) ||
-            element.querySelector(renderedBlockSelector) !== null
-          );
-        });
+        return [...record.addedNodes, ...record.removedNodes].some(
+          (node) =>
+            node.nodeType !== 1 ||
+            !(node as Element).classList.contains(
+              "ptm-reading-highlight-overlay"
+            )
+        );
       });
       if (relevantChange) {
-        this.applyHighlightForLeaf(leaf);
+        schedule();
       }
+    });
+    const resize = new ResizeObserver(schedule);
+    resize.observe(container);
+    const sizer = container.querySelector(".markdown-preview-sizer");
+    if (sizer) {
+      resize.observe(sizer);
+    }
+    container.addEventListener("scroll", schedule, true);
+    this.leafCleanups.set(leaf, () => {
+      if (frame) {
+        ownerWindow.cancelAnimationFrame(frame);
+      }
+      resize.disconnect();
+      container.removeEventListener("scroll", schedule, true);
     });
     observer.observe(container, {
       attributes: true,
@@ -497,6 +570,8 @@ export default class ReadingModeHighlight {
   private disconnectLeafObserver(leaf: WorkspaceLeaf) {
     this.mutationObservers.get(leaf)?.disconnect();
     this.mutationObservers.delete(leaf);
+    this.leafCleanups.get(leaf)?.();
+    this.leafCleanups.delete(leaf);
   }
 
   private getSourceSnapshotToken(filePath: string, source: string): string {
@@ -531,9 +606,9 @@ export default class ReadingModeHighlight {
       | undefined;
     const startLine = Number(element.dataset.ptmReadingBlockStart);
     const endLine = Number(element.dataset.ptmReadingBlockEnd);
-    const snapshot = sourceToken
-      ? this.sourceSnapshots.get(sourceToken)
-      : undefined;
+    const snapshot =
+      this.elementSnapshots.get(element) ??
+      (sourceToken ? this.sourceSnapshots.get(sourceToken) : undefined);
     if (
       !(
         sourceToken &&
@@ -554,6 +629,7 @@ export default class ReadingModeHighlight {
   }
 
   private clearRenderedBlockAttributesFromElement(element: HTMLElement) {
+    this.elementSnapshots.delete(element);
     element.removeAttribute(renderedBlockAttribute);
     delete element.dataset.ptmReadingBlockKind;
     delete element.dataset.ptmReadingBlockStart;
@@ -569,7 +645,29 @@ export default class ReadingModeHighlight {
     }
   }
 
+  private updateOverlay(leaf: WorkspaceLeaf, target: HTMLElement) {
+    const preview = target.closest<HTMLElement>(".markdown-preview-view");
+    if (!(preview && target.isConnected)) {
+      return;
+    }
+    let overlay = this.overlays.get(leaf);
+    if (!overlay || overlay.parentElement !== preview) {
+      overlay?.remove();
+      overlay = preview.ownerDocument.createElement("div");
+      overlay.className = "ptm-reading-highlight-overlay";
+      overlay.setAttribute("aria-hidden", "true");
+      preview.appendChild(overlay);
+      this.overlays.set(leaf, overlay);
+    }
+    const rect = target.getBoundingClientRect();
+    const bounds = preview.getBoundingClientRect();
+    overlay.style.top = `${rect.top - bounds.top + preview.scrollTop - preview.clientTop}px`;
+    overlay.style.height = `${rect.height}px`;
+  }
+
   private clearLeafHighlights(leaf: WorkspaceLeaf) {
+    this.overlays.get(leaf)?.remove();
+    this.overlays.delete(leaf);
     for (const element of this.highlights.get(leaf) ?? []) {
       element.classList.remove(highlightClass);
     }

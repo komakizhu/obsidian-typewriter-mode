@@ -5,7 +5,7 @@
   "authorUrl": "https://davis-riedel.de/en/software",
   "description": "打字机滚动、当前行高亮、非焦点段落与句子淡化、写作专注、恢复光标位置等功能。",
   "isDesktopOnly": false,
-  "version": "1.5.2",
+  "version": "1.6.0",
   "minAppVersion": "1.11.0",
   "fundingUrl": {
     "请我喝杯咖啡": "https://www.buymeacoffee.com/davis.riedel",

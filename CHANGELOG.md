@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.0
+
+- Add reading-mode highlighting for the last edited Markdown block.
+
 ## 1.5.1-beta.1
 
 - Fix plugin settings loading issues

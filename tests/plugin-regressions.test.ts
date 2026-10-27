@@ -25,6 +25,7 @@ function loadPluginClass() {
 
   const context = createContext({
     console: { debug() {}, error() {} },
+    exports: {},
     Element: class {},
     Node: { ELEMENT_NODE: 1 },
     RangeSet: { empty: {} },

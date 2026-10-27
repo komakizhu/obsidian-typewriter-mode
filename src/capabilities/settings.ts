@@ -5,8 +5,11 @@ export interface GeneralSettings {
 }
 
 export interface CurrentLineSettings {
+  highlightMaterial: "plain" | "frosted" | "liquid";
+  highlightShape: "square" | "rounded";
   isHighlightCurrentLineEnabled: boolean;
   isHighlightLastBlockInReadingModeEnabled: boolean;
+  isHighlightSideMarginsOnlyEnabled: boolean;
 }
 
 export interface RestoreCursorPositionSettings {
@@ -63,6 +66,9 @@ export const DEFAULT_SETTINGS: TypewriterModeSettings = {
   currentLine: {
     isHighlightCurrentLineEnabled: true,
     isHighlightLastBlockInReadingModeEnabled: false,
+    isHighlightSideMarginsOnlyEnabled: false,
+    highlightShape: "square",
+    highlightMaterial: "plain",
   },
   restoreCursorPosition: {
     isRestoreCursorPositionEnabled: false,
@@ -99,6 +105,18 @@ function readValue<T>(
   return value as T;
 }
 
+function readEnum<T extends string>(
+  group: RawSettings | null,
+  key: string,
+  allowedValues: readonly T[],
+  fallback: T
+): T {
+  const value = group?.[key];
+  return typeof value === "string" && allowedValues.includes(value as T)
+    ? (value as T)
+    : fallback;
+}
+
 function normalizeSettings(raw: RawSettings): TypewriterModeSettings {
   const legacy = raw;
   const general = asRecord(raw.general);
@@ -127,6 +145,24 @@ function normalizeSettings(raw: RawSettings): TypewriterModeSettings {
         DEFAULT_SETTINGS.currentLine.isHighlightLastBlockInReadingModeEnabled,
         legacy
       ),
+      isHighlightSideMarginsOnlyEnabled: readValue(
+        currentLine,
+        "isHighlightSideMarginsOnlyEnabled",
+        DEFAULT_SETTINGS.currentLine.isHighlightSideMarginsOnlyEnabled,
+        legacy
+      ),
+      highlightShape: readEnum(
+        currentLine,
+        "highlightShape",
+        ["square", "rounded"],
+        DEFAULT_SETTINGS.currentLine.highlightShape
+      ),
+      highlightMaterial: readEnum(
+        currentLine,
+        "highlightMaterial",
+        ["plain", "frosted", "liquid"],
+        DEFAULT_SETTINGS.currentLine.highlightMaterial
+      ),
     },
     restoreCursorPosition: {
       isRestoreCursorPositionEnabled: readValue(
@@ -154,6 +190,18 @@ function hasExactKeys(value: unknown, keys: string[]): boolean {
   );
 }
 
+function hasAllowedValue(
+  record: unknown,
+  key: string,
+  allowedValues: readonly string[]
+): boolean {
+  const values = asRecord(record);
+  return (
+    typeof values?.[key] === "string" &&
+    allowedValues.includes(values[key] as string)
+  );
+}
+
 function isCurrentSettingsShape(raw: RawSettings): boolean {
   return (
     hasExactKeys(raw, ["general", "currentLine", "restoreCursorPosition"]) &&
@@ -161,6 +209,15 @@ function isCurrentSettingsShape(raw: RawSettings): boolean {
     hasExactKeys(raw.currentLine, [
       "isHighlightCurrentLineEnabled",
       "isHighlightLastBlockInReadingModeEnabled",
+      "isHighlightSideMarginsOnlyEnabled",
+      "highlightShape",
+      "highlightMaterial",
+    ]) &&
+    hasAllowedValue(raw.currentLine, "highlightShape", ["square", "rounded"]) &&
+    hasAllowedValue(raw.currentLine, "highlightMaterial", [
+      "plain",
+      "frosted",
+      "liquid",
     ]) &&
     hasExactKeys(raw.restoreCursorPosition, [
       "isRestoreCursorPositionEnabled",

@@ -6,6 +6,10 @@ import { CurrentLinePositionCalculator } from "@/cm6/current-line-position-calcu
 import type { PerWindowProps } from "@/cm6/per-window-props";
 import type TypewriterModeLib from "@/lib";
 import { getEditorFilePath } from "./editor-identity";
+import {
+  clearHighlightAppearance,
+  updateHighlightAppearance,
+} from "./highlight-appearance";
 import { normalizeSelectionRange } from "./selection-utils";
 import { getEditorDom, getScrollDom } from "./selectors";
 import { isMarkdownTableBlock } from "./table-detection";
@@ -502,6 +506,9 @@ class TypewriterModeCM6Plugin {
     const currentLine = editorDom.querySelector(
       `.${currentLineClass}`
     ) as HTMLElement;
+    if (currentLine) {
+      clearHighlightAppearance(currentLine);
+    }
     currentLine?.remove();
   }
 
@@ -727,6 +734,14 @@ class TypewriterModeCM6Plugin {
 
     currentLine.style.height = `${lineHeight}px`;
     currentLine.style.top = `${activeLineOffset - lineOffset + scrollContentOffset}px`;
+
+    updateHighlightAppearance(
+      currentLine,
+      scrollDom ?? editorDom,
+      editorDom.querySelector<HTMLElement>(".cm-sizer") ?? view.contentDOM,
+      this.tm.settings.currentLine,
+      lineHeight
+    );
 
     if (this.removeCurrentLineIfOverTable(view)) {
       return;

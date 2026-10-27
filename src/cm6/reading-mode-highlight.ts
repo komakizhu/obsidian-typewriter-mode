@@ -8,6 +8,10 @@ import {
 } from "obsidian";
 import type TypewriterModeLib from "@/lib";
 import {
+  clearHighlightAppearance,
+  updateHighlightAppearance,
+} from "./highlight-appearance";
+import {
   getMarkdownBlockAtLine,
   type MarkdownBlockKind,
   type MarkdownSectionRange,
@@ -150,6 +154,7 @@ export default class ReadingModeHighlight {
     }
     this.highlights.clear();
     for (const overlay of this.overlays.values()) {
+      clearHighlightAppearance(overlay);
       overlay.remove();
     }
     this.overlays.clear();
@@ -614,10 +619,21 @@ export default class ReadingModeHighlight {
     const bounds = preview.getBoundingClientRect();
     overlay.style.top = `${rect.top - bounds.top + preview.scrollTop - preview.clientTop}px`;
     overlay.style.height = `${rect.height}px`;
+    updateHighlightAppearance(
+      overlay,
+      preview,
+      preview.querySelector<HTMLElement>(".markdown-preview-sizer"),
+      this.tm.settings.currentLine,
+      rect.height
+    );
   }
 
   private clearLeafHighlights(leaf: WorkspaceLeaf) {
-    this.overlays.get(leaf)?.remove();
+    const overlay = this.overlays.get(leaf);
+    if (overlay) {
+      clearHighlightAppearance(overlay);
+      overlay.remove();
+    }
     this.overlays.delete(leaf);
     for (const element of this.highlights.get(leaf) ?? []) {
       element.classList.remove(highlightClass);

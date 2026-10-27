@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { getEditorFilePath } from "@/cm6/editor-identity";
 import { normalizeSelectionRange } from "@/cm6/selection-utils";
+import { setSideMarginHighlightPosition } from "@/cm6/side-margin-highlight";
 import { isMarkdownTableBlock } from "@/cm6/table-detection";
 import { inspectTransactionState } from "@/cm6/transaction-state";
 
@@ -81,5 +82,77 @@ describe("transaction inspection", () => {
       isUserEvent: true,
       allowedUserEvents: true,
     });
+  });
+});
+
+describe("side margin geometry", () => {
+  test("clamps blank sides to the container and leaves the center transparent", () => {
+    const values = new Map<string, string>();
+    const highlight = {
+      style: {
+        setProperty: (key: string, value: string) => values.set(key, value),
+      },
+    } as unknown as HTMLElement;
+    const container = {
+      clientLeft: 2,
+      clientWidth: 500,
+      getBoundingClientRect: () => ({ left: 100 }),
+    } as unknown as HTMLElement;
+    const content = {
+      getBoundingClientRect: () => ({ left: 202, right: 448 }),
+    } as unknown as HTMLElement;
+
+    const widths = setSideMarginHighlightPosition(
+      highlight,
+      container,
+      content
+    );
+
+    expect(widths).toEqual({ left: 100, right: 154 });
+    expect(values.get("--ptm-side-margin-left-width")).toBe("100px");
+    expect(values.get("--ptm-side-margin-right-width")).toBe("154px");
+  });
+
+  test("uses zero widths when the content area is unavailable", () => {
+    const values = new Map<string, string>();
+    const highlight = {
+      style: {
+        setProperty: (key: string, value: string) => values.set(key, value),
+      },
+    } as unknown as HTMLElement;
+    const container = {
+      clientLeft: 0,
+      clientWidth: 500,
+      getBoundingClientRect: () => ({ left: 0 }),
+    } as unknown as HTMLElement;
+
+    const widths = setSideMarginHighlightPosition(highlight, container, null);
+
+    expect(widths).toEqual({ left: 0, right: 0 });
+  });
+
+  test("hides both side panels when the content fills the container", () => {
+    const values = new Map<string, string>();
+    const highlight = {
+      style: {
+        setProperty: (key: string, value: string) => values.set(key, value),
+      },
+    } as unknown as HTMLElement;
+    const container = {
+      clientLeft: 0,
+      clientWidth: 500,
+      getBoundingClientRect: () => ({ left: 100 }),
+    } as unknown as HTMLElement;
+    const content = {
+      getBoundingClientRect: () => ({ left: 100, right: 600 }),
+    } as unknown as HTMLElement;
+
+    const widths = setSideMarginHighlightPosition(
+      highlight,
+      container,
+      content
+    );
+
+    expect(widths).toEqual({ left: 0, right: 0 });
   });
 });

@@ -5,7 +5,7 @@
   "authorUrl": "https://davis-riedel.de/en/software",
   "description": "当前行高亮与可选的光标位置恢复。",
   "isDesktopOnly": false,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "minAppVersion": "1.11.0",
   "fundingUrl": {
     "请我喝杯咖啡": "https://www.buymeacoffee.com/davis.riedel",

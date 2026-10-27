@@ -14,7 +14,10 @@ test("captures detached heading ranges before the render context expires", async
       "globalThis.Manager = class ReadingModeHighlight"
     );
   class File {}
-  const context = createContext({ TFile: File });
+  const context = createContext({
+    TFile: File,
+    invalidateRenderedTextMap: () => undefined,
+  });
   runInContext(
     ts.transpileModule(source, {
       compilerOptions: {

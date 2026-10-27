@@ -10,6 +10,7 @@ export interface CurrentLineSettings {
   isHighlightCurrentLineEnabled: boolean;
   isHighlightLastBlockInReadingModeEnabled: boolean;
   isHighlightSideMarginsOnlyEnabled: boolean;
+  readingHighlightMode: "block" | "line";
 }
 
 export interface RestoreCursorPositionSettings {
@@ -69,6 +70,7 @@ export const DEFAULT_SETTINGS: TypewriterModeSettings = {
     isHighlightSideMarginsOnlyEnabled: false,
     highlightShape: "square",
     highlightMaterial: "plain",
+    readingHighlightMode: "block",
   },
   restoreCursorPosition: {
     isRestoreCursorPositionEnabled: false,
@@ -163,6 +165,12 @@ function normalizeSettings(raw: RawSettings): TypewriterModeSettings {
         ["plain", "frosted", "liquid"],
         DEFAULT_SETTINGS.currentLine.highlightMaterial
       ),
+      readingHighlightMode: readEnum(
+        currentLine,
+        "readingHighlightMode",
+        ["block", "line"],
+        DEFAULT_SETTINGS.currentLine.readingHighlightMode
+      ),
     },
     restoreCursorPosition: {
       isRestoreCursorPositionEnabled: readValue(
@@ -212,12 +220,17 @@ function isCurrentSettingsShape(raw: RawSettings): boolean {
       "isHighlightSideMarginsOnlyEnabled",
       "highlightShape",
       "highlightMaterial",
+      "readingHighlightMode",
     ]) &&
     hasAllowedValue(raw.currentLine, "highlightShape", ["square", "rounded"]) &&
     hasAllowedValue(raw.currentLine, "highlightMaterial", [
       "plain",
       "frosted",
       "liquid",
+    ]) &&
+    hasAllowedValue(raw.currentLine, "readingHighlightMode", [
+      "block",
+      "line",
     ]) &&
     hasExactKeys(raw.restoreCursorPosition, [
       "isRestoreCursorPositionEnabled",

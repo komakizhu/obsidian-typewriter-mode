@@ -16,6 +16,7 @@ import { isMarkdownTableBlock } from "./table-detection";
 import { inspectTransactionState } from "./transaction-state";
 
 const currentLineClass = "ptm-current-line";
+export const currentLineRefreshEvent = "ptm-refresh-current-line";
 
 // Pointer selection moves the highlighted line but does not recenter the view.
 const USER_EVENT_ALLOWED_DEFAULT = /^(select|input|delete|undo|redo)(\..+)?$/;
@@ -48,6 +49,8 @@ class TypewriterModeCM6Plugin {
   private readonly onEditorInteractionBound =
     this.onEditorInteraction.bind(this);
   private readonly onTableDomMutationBound = this.onTableDomMutation.bind(this);
+  private readonly onCurrentLineRefreshBound =
+    this.onCurrentLineRefresh.bind(this);
 
   constructor(tm: TypewriterModeLib, view: EditorView) {
     this.tm = tm;
@@ -80,6 +83,10 @@ class TypewriterModeCM6Plugin {
       this.onEditorInteractionBound
     );
     this.view.dom.removeEventListener("keydown", this.onEditorInteractionBound);
+    this.view.dom.removeEventListener(
+      currentLineRefreshEvent,
+      this.onCurrentLineRefreshBound
+    );
 
     this.view.dom.ownerDocument.removeEventListener(
       "focusin",
@@ -113,6 +120,10 @@ class TypewriterModeCM6Plugin {
       this.onEditorInteractionBound
     );
     this.view.dom.addEventListener("keydown", this.onEditorInteractionBound);
+    this.view.dom.addEventListener(
+      currentLineRefreshEvent,
+      this.onCurrentLineRefreshBound
+    );
     this.view.dom.classList.add("ptm-first-open");
     this.onReconfigured();
 
@@ -641,6 +652,14 @@ class TypewriterModeCM6Plugin {
 
   private onEditorInteraction() {
     this.revealCurrentLineAfterInteraction();
+  }
+
+  private onCurrentLineRefresh() {
+    if (this.isDestroyed || this.isDisabled()) {
+      return;
+    }
+    this.revealCurrentLineAfterInteraction();
+    this.updateAfterExternalEvent();
   }
 
   private revealCurrentLineAfterInteraction() {

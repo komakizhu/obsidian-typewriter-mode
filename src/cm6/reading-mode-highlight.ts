@@ -1,4 +1,8 @@
-import { type Extension, Transaction } from "@codemirror/state";
+import {
+  EditorSelection,
+  type Extension,
+  Transaction,
+} from "@codemirror/state";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import {
   type MarkdownPostProcessorContext,
@@ -18,6 +22,12 @@ import {
   sectionMatchesBlock,
   sourceBlockMatches,
 } from "./markdown-block";
+import { currentLineRefreshEvent } from "./plugin";
+import {
+  getRenderedLineRect,
+  getTableRenderedRowIndex,
+  invalidateRenderedTextMap,
+} from "./reading-line";
 
 const highlightClass = "ptm-reading-current-block";
 const blockSelectors = {
@@ -31,6 +41,7 @@ const blockSelectors = {
 } as const;
 
 interface ReadingPosition {
+  column: number;
   filePath: string;
   line: number;
   source: string;
@@ -68,7 +79,8 @@ export default class ReadingModeHighlight {
     string,
     Array<{ token: string; source: string }>
   >();
-  private readonly overlays = new Map<WorkspaceLeaf, HTMLElement>();
+  private readonly overlays = new Map<WorkspaceLeaf, HTMLElement[]>();
+  private readonly editorViews = new Map<WorkspaceLeaf, EditorView>();
   private readonly leafCleanups = new Map<WorkspaceLeaf, () => void>();
   private sourceSnapshotSequence = 0;
   private unloaded = false;
@@ -85,21 +97,38 @@ export default class ReadingModeHighlight {
       class {
         private readonly view: EditorView;
         private readonly onInteraction: () => void;
+        private wasSourceMode: boolean;
 
         constructor(view: EditorView) {
           this.view = view;
+          manager.rememberEditorView(view);
+          this.wasSourceMode =
+            manager.getMarkdownView(view)?.getMode() === "source";
           this.onInteraction = () => manager.recordEditorPosition(view);
           view.dom.addEventListener("pointerdown", this.onInteraction);
           view.dom.addEventListener("keydown", this.onInteraction);
+          if (this.wasSourceMode) {
+            manager.scheduleEditorPositionRestore(view);
+          }
         }
 
         update(update: ViewUpdate) {
-          if (
-            update.docChanged &&
-            manager.getMarkdownView(update.view)?.getMode() !== "source"
-          ) {
-            manager.forgetPosition(update.view);
+          manager.rememberEditorView(update.view);
+          const isSourceMode =
+            manager.getMarkdownView(update.view)?.getMode() === "source";
+          const enteredSourceMode = !this.wasSourceMode && isSourceMode;
+          this.wasSourceMode = isSourceMode;
+
+          if (update.docChanged && !isSourceMode) {
+            // Obsidian may replace the editor document while switching to
+            // reading mode. Keep the last source-mode cursor position so the
+            // reading highlight can use it; source and file changes are
+            // invalidated by syncPreviewPosition().
             return;
+          }
+
+          if (enteredSourceMode) {
+            manager.scheduleEditorPositionRestore(update.view);
           }
 
           const hasUserInteraction = update.transactions.some(
@@ -107,8 +136,9 @@ export default class ReadingModeHighlight {
               transaction.annotation(Transaction.userEvent) !== undefined
           );
           if (
-            hasUserInteraction &&
-            (update.docChanged || update.selectionSet)
+            isSourceMode &&
+            (update.docChanged || update.selectionSet) &&
+            (!enteredSourceMode || hasUserInteraction)
           ) {
             manager.recordEditorPosition(update.view);
           }
@@ -117,6 +147,7 @@ export default class ReadingModeHighlight {
         destroy() {
           this.view.dom.removeEventListener("pointerdown", this.onInteraction);
           this.view.dom.removeEventListener("keydown", this.onInteraction);
+          manager.forgetEditorView(this.view);
         }
       }
     );
@@ -137,6 +168,7 @@ export default class ReadingModeHighlight {
     this.unloaded = true;
     this.clearHighlights();
     this.positions.clear();
+    this.editorViews.clear();
     for (const leaf of this.tm.plugin.app.workspace.getLeavesOfType(
       "markdown"
     )) {
@@ -153,9 +185,11 @@ export default class ReadingModeHighlight {
       }
     }
     this.highlights.clear();
-    for (const overlay of this.overlays.values()) {
-      clearHighlightAppearance(overlay);
-      overlay.remove();
+    for (const overlays of this.overlays.values()) {
+      for (const overlay of overlays) {
+        clearHighlightAppearance(overlay);
+        overlay.remove();
+      }
     }
     this.overlays.clear();
     for (const cleanup of this.leafCleanups.values()) {
@@ -245,24 +279,101 @@ export default class ReadingModeHighlight {
     }
 
     const selection = editorView.state.selection.main;
+    const sourceLine = editorView.state.doc.lineAt(selection.head);
     this.positions.set(leaf, {
       filePath,
-      line: editorView.state.doc.lineAt(selection.head).number - 1,
+      line: sourceLine.number - 1,
+      column: selection.head - sourceLine.from,
       source: editorView.state.doc.toString(),
     });
   }
 
-  private forgetPosition(editorView: EditorView) {
-    const leafElement = editorView.dom.closest(".workspace-leaf");
-    const leaf = leafElement
-      ? this.tm.plugin.app.workspace
-          .getLeavesOfType("markdown")
-          .find((candidate) => this.getLeafContainer(candidate) === leafElement)
-      : undefined;
+  private rememberEditorView(editorView: EditorView) {
+    const leaf = this.getLeaf(editorView.dom);
     if (leaf) {
-      this.positions.delete(leaf);
-      this.clearLeafHighlights(leaf);
+      this.editorViews.set(leaf, editorView);
     }
+  }
+
+  private forgetEditorView(editorView: EditorView) {
+    const leaf = this.getLeaf(editorView.dom);
+    if (leaf && this.editorViews.get(leaf) === editorView) {
+      this.editorViews.delete(leaf);
+    }
+  }
+
+  private scheduleEditorPositionRestore(editorView: EditorView) {
+    const ownerWindow = editorView.dom.ownerDocument.defaultView;
+    ownerWindow?.requestAnimationFrame(() => {
+      if (!this.unloaded && editorView.dom.isConnected) {
+        ownerWindow.requestAnimationFrame(() => {
+          if (
+            !this.unloaded &&
+            editorView.dom.isConnected &&
+            this.restoreEditorPosition(editorView)
+          ) {
+            this.scheduleCurrentLineRefresh(editorView, 2);
+          }
+        });
+      }
+    });
+  }
+
+  private scheduleCurrentLineRefresh(
+    editorView: EditorView,
+    retriesRemaining: number
+  ) {
+    const ownerWindow = editorView.dom.ownerDocument.defaultView;
+    ownerWindow?.requestAnimationFrame(() => {
+      ownerWindow.requestAnimationFrame(() => {
+        const leaf = this.getLeaf(editorView.dom);
+        const view = leaf ? this.asMarkdownView(leaf) : null;
+        if (
+          this.unloaded ||
+          !editorView.dom.isConnected ||
+          !leaf ||
+          view?.getMode() !== "source"
+        ) {
+          return;
+        }
+        // The editor DOM can survive a mode change with a stale marker node.
+        // Refresh a few times after layout settles instead of treating the
+        // node's mere presence as proof that its geometry is current.
+        editorView.dom.dispatchEvent(new Event(currentLineRefreshEvent));
+        if (retriesRemaining > 0) {
+          this.scheduleCurrentLineRefresh(editorView, retriesRemaining - 1);
+        }
+      });
+    });
+  }
+
+  private restoreEditorPosition(editorView: EditorView): boolean {
+    const leaf = this.getLeaf(editorView.dom);
+    const view = leaf ? this.asMarkdownView(leaf) : null;
+    if (!(leaf && view) || view.getMode() !== "source") {
+      return false;
+    }
+    const position = this.positions.get(leaf);
+    const filePath = view.file?.path;
+    if (
+      !position ||
+      position.filePath !== filePath ||
+      position.source !== editorView.state.doc.toString()
+    ) {
+      this.recordEditorPosition(editorView);
+      return false;
+    }
+    // Reveal and redraw only after a saved source position is ready. A new
+    // editor without a previous position keeps the existing first-open state.
+    editorView.dom.classList.remove("ptm-first-open");
+
+    const line = editorView.state.doc.line(
+      Math.min(Math.max(position.line + 1, 1), editorView.state.doc.lines)
+    );
+    const head =
+      line.from + Math.min(Math.max(position.column, 0), line.length);
+    editorView.dispatch({ selection: EditorSelection.cursor(head) });
+    return true;
   }
 
   private isEnabledFor(view: MarkdownView): boolean {
@@ -345,6 +456,7 @@ export default class ReadingModeHighlight {
       return;
     }
     for (const { candidate, kind, range } of sections) {
+      invalidateRenderedTextMap(candidate);
       this.elementSnapshots.set(candidate, sourceSnapshot);
       candidate.setAttribute(renderedBlockAttribute, sourceToken);
       candidate.dataset.ptmReadingBlockKind = kind;
@@ -449,7 +561,7 @@ export default class ReadingModeHighlight {
       target.classList.add(highlightClass);
       this.highlights.set(leaf, new Set([target]));
     }
-    this.updateOverlay(leaf, target);
+    this.updateOverlay(leaf, target, position, matching[0].section, block);
   }
 
   private isReadingFeatureEnabled(): boolean {
@@ -601,36 +713,157 @@ export default class ReadingModeHighlight {
     }
   }
 
-  private updateOverlay(leaf: WorkspaceLeaf, target: HTMLElement) {
+  private getReadingHighlightRects(
+    target: HTMLElement,
+    position: ReadingPosition,
+    section: RenderedBlockSection,
+    block: NonNullable<ReturnType<typeof getMarkdownBlockAtLine>>
+  ): Array<{ top: number; height: number }> {
+    const blockRect = target.getBoundingClientRect();
+    const fallback = [{ top: blockRect.top, height: blockRect.height }];
+    if (block.kind === "table") {
+      const rowIndex = getTableRenderedRowIndex(
+        position.source,
+        position.line,
+        block.startLine
+      );
+      const row =
+        rowIndex === null ? null : target.querySelectorAll("tr")[rowIndex];
+      if (row) {
+        const rect = row.getBoundingClientRect();
+        return rect.height > 0
+          ? [{ top: rect.top, height: rect.height }]
+          : fallback;
+      }
+      return fallback;
+    }
+    const rect = getRenderedLineRect(
+      target,
+      position.source,
+      position.line,
+      position.column,
+      section.range.lineStart,
+      block.kind
+    );
+    return rect ? [rect] : fallback;
+  }
+
+  private ensureOverlayCount(
+    leaf: WorkspaceLeaf,
+    preview: HTMLElement,
+    overlayHost: HTMLElement,
+    count: number
+  ): HTMLElement[] {
+    let overlays = this.overlays.get(leaf) ?? [];
+    if (overlays.some((overlay) => overlay.parentElement !== overlayHost)) {
+      for (const overlay of overlays) {
+        clearHighlightAppearance(overlay);
+        overlay.remove();
+      }
+      overlays = [];
+    }
+    while (overlays.length > count) {
+      const overlay = overlays.pop();
+      if (overlay) {
+        clearHighlightAppearance(overlay);
+        overlay.remove();
+      }
+    }
+    while (overlays.length < count) {
+      const overlay = preview.ownerDocument.createElement("div");
+      overlay.className = "ptm-reading-highlight-overlay";
+      overlay.setAttribute("aria-hidden", "true");
+      overlayHost.appendChild(overlay);
+      overlays.push(overlay);
+    }
+    this.overlays.set(leaf, overlays);
+    return overlays;
+  }
+
+  private positionOverlay(
+    overlay: HTMLElement,
+    top: number,
+    preview: HTMLElement,
+    overlayHost: HTMLElement,
+    previewBounds: DOMRect,
+    hostBounds: DOMRect
+  ) {
+    if (overlayHost === preview) {
+      overlay.style.removeProperty("left");
+      overlay.style.width = "100%";
+      overlay.style.top = `${top - previewBounds.top + preview.scrollTop - preview.clientTop}px`;
+      return;
+    }
+    overlay.style.left = `${previewBounds.left - hostBounds.left + overlayHost.scrollLeft - overlayHost.clientLeft}px`;
+    overlay.style.width = `${preview.clientWidth}px`;
+    overlay.style.top = `${top - hostBounds.top + overlayHost.scrollTop - overlayHost.clientTop}px`;
+  }
+
+  private updateOverlay(
+    leaf: WorkspaceLeaf,
+    target: HTMLElement,
+    position: ReadingPosition,
+    section: RenderedBlockSection,
+    block: NonNullable<ReturnType<typeof getMarkdownBlockAtLine>>
+  ) {
     const preview = target.closest<HTMLElement>(".markdown-preview-view");
     if (!(preview && target.isConnected)) {
       return;
     }
-    let overlay = this.overlays.get(leaf);
-    if (!overlay || overlay.parentElement !== preview) {
-      overlay?.remove();
-      overlay = preview.ownerDocument.createElement("div");
-      overlay.className = "ptm-reading-highlight-overlay";
-      overlay.setAttribute("aria-hidden", "true");
-      preview.appendChild(overlay);
-      this.overlays.set(leaf, overlay);
-    }
-    const rect = target.getBoundingClientRect();
-    const bounds = preview.getBoundingClientRect();
-    overlay.style.top = `${rect.top - bounds.top + preview.scrollTop - preview.clientTop}px`;
-    overlay.style.height = `${rect.height}px`;
-    updateHighlightAppearance(
-      overlay,
+    const overlayHost = preview;
+    const rects =
+      this.tm.settings.currentLine.readingHighlightMode === "line"
+        ? this.getReadingHighlightRects(target, position, section, block)
+        : (() => {
+            const rect = target.getBoundingClientRect();
+            return [{ top: rect.top, height: rect.height }];
+          })();
+    const overlays = this.ensureOverlayCount(
+      leaf,
       preview,
-      preview.querySelector<HTMLElement>(".markdown-preview-sizer"),
-      this.tm.settings.currentLine,
-      rect.height
+      overlayHost,
+      rects.length
     );
+    const bounds = preview.getBoundingClientRect();
+    const hostBounds = overlayHost.getBoundingClientRect();
+    const contentArea = preview.querySelector<HTMLElement>(
+      ".markdown-preview-sizer"
+    );
+    for (const overlay of overlays) {
+      if (overlayHost === preview) {
+        overlay.style.removeProperty("left");
+        overlay.style.width = "100%";
+      } else {
+        overlay.style.left = `${bounds.left - hostBounds.left + overlayHost.scrollLeft - overlayHost.clientLeft}px`;
+        overlay.style.width = `${preview.clientWidth}px`;
+      }
+    }
+    for (const [index, overlay] of overlays.entries()) {
+      const rect = rects[index];
+      if (!rect) {
+        continue;
+      }
+      this.positionOverlay(
+        overlay,
+        rect.top,
+        preview,
+        overlayHost,
+        bounds,
+        hostBounds
+      );
+      overlay.style.height = `${rect.height}px`;
+      updateHighlightAppearance(
+        overlay,
+        preview,
+        contentArea,
+        this.tm.settings.currentLine,
+        rect.height
+      );
+    }
   }
 
   private clearLeafHighlights(leaf: WorkspaceLeaf) {
-    const overlay = this.overlays.get(leaf);
-    if (overlay) {
+    for (const overlay of this.overlays.get(leaf) ?? []) {
       clearHighlightAppearance(overlay);
       overlay.remove();
     }
@@ -675,6 +908,7 @@ export default class ReadingModeHighlight {
       if (!(openLeaves.has(leaf) && view)) {
         this.disconnectLeafObserver(leaf);
         this.positions.delete(leaf);
+        this.editorViews.delete(leaf);
         this.clearLeafHighlights(leaf);
         this.clearRenderedBlockAttributes(leaf);
         continue;
@@ -696,6 +930,10 @@ export default class ReadingModeHighlight {
         this.clearLeafHighlights(leaf);
         this.clearRenderedBlockAttributes(leaf);
       } else {
+        const editorView = this.editorViews.get(leaf);
+        if (editorView) {
+          this.scheduleEditorPositionRestore(editorView);
+        }
         this.clearLeafHighlights(leaf);
       }
     }

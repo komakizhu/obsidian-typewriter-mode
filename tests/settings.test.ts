@@ -23,6 +23,7 @@ test("appearance settings default safely for older and invalid stored values", a
       isHighlightSideMarginsOnlyEnabled: true,
       highlightShape: "pill",
       highlightMaterial: 42,
+      readingHighlightMode: "word",
     }),
     vault,
     ".obsidian/plugins/typewriter-mode"
@@ -30,6 +31,7 @@ test("appearance settings default safely for older and invalid stored values", a
 
   expect(settings.currentLine.highlightShape).toBe("square");
   expect(settings.currentLine.highlightMaterial).toBe("plain");
+  expect(settings.currentLine.readingHighlightMode).toBe("block");
   expect(settings.currentLine.isHighlightSideMarginsOnlyEnabled).toBe(true);
   expect(requiresSave).toBe(true);
 });
@@ -47,6 +49,7 @@ test("older settings without appearance fields are normalized and saved once", a
 
   expect(settings.currentLine.highlightShape).toBe("square");
   expect(settings.currentLine.highlightMaterial).toBe("plain");
+  expect(settings.currentLine.readingHighlightMode).toBe("block");
   expect(requiresSave).toBe(true);
 });
 
@@ -58,6 +61,7 @@ test("appearance settings preserve valid values without another migration", asyn
       isHighlightSideMarginsOnlyEnabled: false,
       highlightShape: "rounded",
       highlightMaterial: "frosted",
+      readingHighlightMode: "line",
     }),
     vault,
     ".obsidian/plugins/typewriter-mode"
@@ -65,5 +69,6 @@ test("appearance settings preserve valid values without another migration", asyn
 
   expect(settings.currentLine.highlightShape).toBe("rounded");
   expect(settings.currentLine.highlightMaterial).toBe("frosted");
+  expect(settings.currentLine.readingHighlightMode).toBe("line");
   expect(requiresSave).toBe(false);
 });
